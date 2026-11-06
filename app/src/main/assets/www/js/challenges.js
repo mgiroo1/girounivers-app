@@ -2,7 +2,9 @@
 window.G = window.G || {};
 (function (G) {
   const h = G.h;
-  const LVL = { 1: 'Fácil', 2: 'Medio', 3: 'Difícil' };
+  const LVL = { 1: G.t('Fácil'), 2: G.t('Medio'), 3: G.t('Difícil') };
+  const ct = c => (c.seed && G.lang === 'en' && G.CH[c.id]) ? { title: G.CH[c.id][0], how: G.CH[c.id][1], tip: G.CH[c.id][2] } : { title: c.title, how: c.how, tip: c.tip };
+  const nf = n => n + G.x(n === 1 ? ' foto' : ' fotos', n === 1 ? ' photo' : ' photos');
   const state = { f: 'todos', open: null, counts: {} };
   let list, sumEl, chips;
   const save = G.debounce(() => G.kv.set('challenges', G.challenges), 300);
@@ -20,7 +22,7 @@ window.G = window.G || {};
     const total = G.challenges.length, done = G.challenges.filter(c => state.counts[c.id]).length;
     sumEl.replaceChildren(
       h('div', { class: 'ring', style: `--p:${total ? done / total * 100 : 0}` }, h('b', null, done + '/' + total)),
-      h('div', null, h('div', { class: 'sky-info-title' }, done === total && total ? '¡Todos los retos completados!' : 'Tu progreso'),
+      h('div', null, h('div', { class: 'sky-info-title' }, G.t(done === total && total ? '¡Todos los retos completados!' : 'Tu progreso')),
         h('div', { class: 'muted small' }, 'Sube al menos una foto a un reto para completarlo.')));
     const f = state.f;
     const items = G.challenges.filter(c => f === 'todos' || (f === 'pendientes' && !state.counts[c.id]) || (f === 'hechos' && state.counts[c.id]) || (['1', '2', '3'].includes(f) && String(c.lvl) === f));
@@ -33,11 +35,11 @@ window.G = window.G || {};
     const el = h('div', { class: 'chal' + (n ? ' done' : '') + (open ? ' open' : '') },
       h('button', { class: 'chal-head', onclick: () => { state.open = open ? null : c.id; render(); } },
         h('span', { class: 'check' }, n ? '✓' : ''),
-        h('div', { class: 'chal-title' }, h('b', null, c.title), h('small', { class: 'muted' }, LVL[c.lvl] + (n ? ' · ' + n + (n === 1 ? ' foto' : ' fotos') : ''))),
+        h('div', { class: 'chal-title' }, h('b', null, ct(c).title), h('small', { class: 'muted' }, LVL[c.lvl] + (n ? ' · ' + nf(n) : ''))),
         h('span', { class: 'stars lv' + c.lvl }, '★'.repeat(c.lvl)), h('span', { class: 'chev' }, open ? '▾' : '▸')));
     if (open) {
       const body = h('div', { class: 'chal-body' },
-        h('p', null, c.how), c.tip ? h('p', { class: 'tip' }, '💡 ', c.tip) : null,
+        h('p', null, ct(c).how), ct(c).tip ? h('p', { class: 'tip' }, '💡 ', ct(c).tip) : null,
         G.gallery('c:' + c.id, { emptyText: 'Aún sin fotos — ¡sube la primera!', onChange: () => { loadCounts().then(updateHead); } }));
       if (!c.seed) body.append(h('div', { class: 'row-btns end' }, h('button', { class: 'btn danger ghost small', onclick: () => G.confirm('¿Eliminar este reto?', 'Eliminar', () => { G.challenges = G.challenges.filter(x => x !== c); save(); state.open = null; render(); }) }, 'Eliminar reto')));
       el.append(body);
@@ -52,7 +54,7 @@ window.G = window.G || {};
       const id = state.open; if (!el.classList.contains('open')) return;
       const n = state.counts[id] || 0; el.classList.toggle('done', !!n);
       G.$('.check', el).textContent = n ? '✓' : '';
-      G.$('.chal-title small', el).textContent = LVL[G.challenges.find(c => c.id === id).lvl] + (n ? ' · ' + n + (n === 1 ? ' foto' : ' fotos') : '');
+      G.$('.chal-title small', el).textContent = LVL[G.challenges.find(c => c.id === id).lvl] + (n ? ' · ' + nf(n) : '');
     });
   }
 

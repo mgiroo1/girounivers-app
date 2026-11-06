@@ -5,6 +5,7 @@ window.G = window.G || {};
   const ORDER = ['mercury', 'venus', 'earth', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune'];
   const NAME = { sun: 'Sol', mercury: 'Mercurio', venus: 'Venus', earth: 'Tierra', mars: 'Marte', jupiter: 'Júpiter', saturn: 'Saturno', uranus: 'Urano', neptune: 'Neptuno' };
   const ID = { sun: 'sol', mercury: 'mercurio', venus: 'venus', earth: 'tierra', mars: 'marte', jupiter: 'jupiter', saturn: 'saturno', uranus: 'urano', neptune: 'neptuno' };
+  if (G.lang === 'en') Object.keys(NAME).forEach(k => { NAME[k] = G.t(NAME[k]); });
   const COL = { sun: '#ffd36b', mercury: '#b9b1a6', venus: '#f6dfa8', earth: '#5aa7ff', mars: '#ff7b52', jupiter: '#e8b98a', saturn: '#f1d79a', uranus: '#9fe3e8', neptune: '#6f93ff' };
   const RPX = { sun: 10, mercury: 3, venus: 4.6, earth: 4.8, mars: 3.6, jupiter: 8.5, saturn: 7.2, uranus: 5.6, neptune: 5.4 };
   const PERIOD = { mercury: '87,97 días', venus: '224,7 días', earth: '365,26 días', mars: '687 días', jupiter: '11,86 años', saturn: '29,45 años', uranus: '84 años', neptune: '164,8 años' };
@@ -84,11 +85,11 @@ window.G = window.G || {};
       ctx.font = '600 11px system-ui, sans-serif'; ctx.fillStyle = '#dfe6ff'; ctx.textAlign = 'left';
       ctx.fillText(NAME[n], p.x + r + 7, p.y + 4);
     });
-    ctx.fillStyle = '#ffe9b0'; ctx.font = '600 11px system-ui, sans-serif'; ctx.fillText('Sol', sp.x + 14, sp.y + 4);
+    ctx.fillStyle = '#ffe9b0'; ctx.font = '600 11px system-ui, sans-serif'; ctx.fillText(NAME.sun, sp.x + 14, sp.y + 4);
     if (S.sel === 'sun') { ctx.strokeStyle = '#86c9ff'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(sp.x, sp.y, RPX.sun + 7, 0, 6.3); ctx.stroke(); }
 
     // escala/leyenda
-    dateEl.textContent = simDate().toLocaleString('es-ES', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) + (S.simOffset === 0 && S.speed === 1 ? ' · en vivo' : '');
+    dateEl.textContent = simDate().toLocaleString(G.locale, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) + (S.simOffset === 0 && S.speed === 1 ? G.x(' · en vivo', ' · live') : '');
     if (S.sel) refreshInfo(B);
   }
 
@@ -98,8 +99,8 @@ window.G = window.G || {};
     const rAU = n === 'sun' ? 0 : Math.hypot(p.x, p.y);
     const dEarth = n === 'sun' ? B.sun.dist : n === 'earth' ? 0 : B[n].dist;
     const rows = n === 'sun'
-      ? [['Distancia a la Tierra', G.fmtNum(dEarth, 3) + ' UA']]
-      : [['Distancia al Sol', G.fmtNum(rAU, 3) + ' UA · ' + G.fmtNum(rAU * 149.5978707, 1) + ' M km'], n === 'earth' ? null : ['Distancia a la Tierra', G.fmtNum(dEarth, 3) + ' UA'], ['Periodo orbital', PERIOD[n]]];
+      ? [['Distancia a la Tierra', G.fmtNum(dEarth, 3) + G.x(' UA', ' AU')]]
+      : [['Distancia al Sol', G.fmtNum(rAU, 3) + G.x(' UA · ', ' AU · ') + G.fmtNum(rAU * 149.5978707, 1) + ' M km'], n === 'earth' ? null : ['Distancia a la Tierra', G.fmtNum(dEarth, 3) + G.x(' UA', ' AU')], ['Periodo orbital', G.td(PERIOD[n])]];
     info._rows.replaceChildren(...rows.filter(Boolean).map(r => h('div', { class: 'kv' }, h('span', { class: 'muted' }, r[0]), h('b', null, r[1]))));
     info._title.textContent = NAME[n];
   }
@@ -141,13 +142,13 @@ window.G = window.G || {};
       cv = h('canvas', { id: 'solar-canvas' });
       dateEl = h('span', { id: 'solar-date' });
       const top = h('div', { class: 'sky-top' },
-        h('button', { class: 'chip-btn', id: 'sc-mode', onclick: e => { S.mode = S.mode === 'comprimida' ? 'lineal' : 'comprimida'; e.currentTarget.textContent = 'Escala: ' + S.mode; S.dirty = true; } }, 'Escala: comprimida'),
+        h('button', { class: 'chip-btn', id: 'sc-mode', onclick: e => { S.mode = S.mode === 'comprimida' ? 'lineal' : 'comprimida'; e.currentTarget.textContent = G.t('Escala: ' + S.mode); S.dirty = true; } }, 'Escala: comprimida'),
         h('button', { class: 'chip-btn', onclick: () => { S.zoom = 1; S.px = 0; S.py = 0; S.dirty = true; } }, '⌖ Centrar'),
         h('button', { class: 'chip-btn', onclick: () => { S.tilt = S.tilt > 0.9 ? 0.5 : S.tilt + 0.17; S.dirty = true; } }, '⟲ Inclinar'));
       const bar = h('div', { class: 'sky-time' },
-        h('button', { onclick: () => { speedIdx = Math.max(0, speedIdx - 1); S.speed = SPEEDS[speedIdx][1]; spLabel.textContent = SPEEDS[speedIdx][0]; } }, '−'),
-        h('div', { class: 'tcenter', onclick: () => { S.simOffset = 0; speedIdx = 0; S.speed = 1; spLabel.textContent = SPEEDS[0][0]; S.dirty = true; } }, dateEl, h('small', null, 'velocidad: ', (spLabel = h('b', { id: 'sp-label' }, 'Tiempo real')), ' · toca para volver a ahora')),
-        h('button', { onclick: () => { speedIdx = Math.min(SPEEDS.length - 1, speedIdx + 1); S.speed = SPEEDS[speedIdx][1]; spLabel.textContent = SPEEDS[speedIdx][0]; } }, '+'),
+        h('button', { onclick: () => { speedIdx = Math.max(0, speedIdx - 1); S.speed = SPEEDS[speedIdx][1]; spLabel.textContent = G.t(SPEEDS[speedIdx][0]); } }, '−'),
+        h('div', { class: 'tcenter', onclick: () => { S.simOffset = 0; speedIdx = 0; S.speed = 1; spLabel.textContent = G.t(SPEEDS[0][0]); S.dirty = true; } }, dateEl, h('small', null, 'velocidad: ', (spLabel = h('b', { id: 'sp-label' }, 'Tiempo real')), ' · toca para volver a ahora')),
+        h('button', { onclick: () => { speedIdx = Math.min(SPEEDS.length - 1, speedIdx + 1); S.speed = SPEEDS[speedIdx][1]; spLabel.textContent = G.t(SPEEDS[speedIdx][0]); } }, '+'),
         h('button', { onclick: () => { S.simOffset -= 30 * 86400000; S.dirty = true; } }, '−1m'),
         h('button', { onclick: () => { S.simOffset += 30 * 86400000; S.dirty = true; } }, '+1m'));
       info = h('div', { id: 'solar-info', class: 'sheet' });

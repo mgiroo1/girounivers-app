@@ -21,7 +21,7 @@ window.G = window.G || {};
     urls.forEach(u => URL.revokeObjectURL(u)); urls = [];
     const q = state.q.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
     const list = G.entries.filter(e => (state.cat === 'todo' || e.cat === state.cat) && (!q || (e.name + ' ' + e.sub).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').includes(q)));
-    countEl.textContent = list.length + ' fichas · ' + G.entries.filter(e => e.observed).length + ' observadas';
+    countEl.textContent = G.x(list.length + ' fichas · ' + G.entries.filter(e => e.observed).length + ' observadas', list.length + ' entries · ' + G.entries.filter(e => e.observed).length + ' observed');
     grid.replaceChildren(...list.map(e => {
       const cov = state.covers[e.id]; let style = '';
       if (cov) { const u = URL.createObjectURL(cov); urls.push(u); style = `background-image:linear-gradient(180deg,rgba(4,5,12,0) 30%,rgba(4,5,12,.85)),url(${u})`; }
@@ -30,7 +30,7 @@ window.G = window.G || {};
       return h('button', { class: 'card', style, onclick: () => G.openEntry(e.id) },
         e.observed ? h('span', { class: 'badge' }, '✓') : null,
         cov ? null : h('span', { class: 'glyph', style: 'color:' + CAT_COLORS[e.cat] }, catOf(e.cat).icon),
-        h('div', { class: 'card-txt' }, h('b', null, e.name), h('small', null, e.sub || catOf(e.cat).name),
+        h('div', { class: 'card-txt' }, h('b', null, e.name), h('small', null, G.td(e.sub) || catOf(e.cat).name),
           h('div', { class: 'dots' }, [0, 1, 2, 3, 4].map(i => h('i', { class: i < Math.ceil(f / 7 * 5) ? 'on' : '' })))));
     }));
     if (!list.length) grid.append(h('div', { class: 'empty' }, 'No hay fichas que coincidan. Pulsa ＋ para crear una.'));
@@ -53,17 +53,17 @@ window.G = window.G || {};
     const body = h('div', { class: 'entry' });
     const m = G.modal({ title: e.name, full: true, body, onClose: () => { renderGrid(); } });
     const titleEl = G.$('.modal-head h3', m.el);
-    function viewKV(label, v) { return v && v.trim() ? h('div', { class: 'kv' }, h('span', { class: 'muted' }, label), h('b', null, v)) : null; }
+    function viewKV(label, v) { return v && v.trim() ? h('div', { class: 'kv' }, h('span', { class: 'muted' }, label), h('b', null, G.td(v))) : null; }
     function section(title, text) {
       return h('section', { class: 'sec' }, h('h4', null, title), text && text.trim() ? h('p', { class: 'prose' }, text) : h('p', { class: 'placeholder' }, 'Sin rellenar · pulsa “Editar” para escribir aquí.'));
     }
     function render() {
-      titleEl.textContent = e.name;
+      titleEl.textContent = G.t(e.name);
       const cat = catOf(e.cat);
       const nodes = [];
       nodes.push(h('div', { class: 'entry-head' },
         h('span', { class: 'glyph big', style: 'color:' + CAT_COLORS[e.cat] }, cat.icon),
-        h('div', null, h('div', { class: 'muted small' }, cat.name), h('div', { class: 'muted' }, e.sub || ' '))));
+        h('div', null, h('div', { class: 'muted small' }, cat.name), h('div', { class: 'muted' }, G.td(e.sub) || ' '))));
       nodes.push(h('div', { class: 'row-btns' },
         h('button', { class: 'btn small' + (e.observed ? ' primary' : ''), onclick: () => { e.observed = !e.observed; save(); render(); } }, e.observed ? '✓ Observado' : 'Marcar como observado'),
         skyBtn(), edit ? null : h('button', { class: 'btn small', onclick: () => { edit = true; render(); } }, '✎ Editar')));
@@ -73,7 +73,7 @@ window.G = window.G || {};
         const kvs = [viewKV('Tamaño', e.size), viewKV('Periodo orbital', e.period), viewKV('Distancia al Sol', e.distSun), viewKV('Distancia en años luz', e.distLy)].concat((e.extra || []).map(x => viewKV(x.k, x.v))).filter(Boolean);
         nodes.push(h('section', { class: 'sec' }, h('h4', null, 'Datos'), kvs.length ? h('div', { class: 'kvs' }, kvs) : h('p', { class: 'placeholder' }, 'Tamaño, periodo orbital, distancia al Sol o años luz… rellénalos en “Editar”.')));
         nodes.push(section('Mis notas', e.notes));
-        nodes.push(h('div', { class: 'row-btns end' }, h('button', { class: 'btn danger ghost small', onclick: () => G.confirm('¿Eliminar la ficha “' + e.name + '”? Sus fotos se mantendrán en tu copia pero ya no se mostrarán.', 'Eliminar', () => { G.entries = G.entries.filter(x => x !== e); save(); m.close(); }) }, 'Eliminar ficha')));
+        nodes.push(h('div', { class: 'row-btns end' }, h('button', { class: 'btn danger ghost small', onclick: () => G.confirm(G.x('¿Eliminar la ficha “' + e.name + '”? Sus fotos se mantendrán en tu copia pero ya no se mostrarán.', 'Delete the entry “' + e.name + '”? Its photos stay in your backup but will no longer be shown.'), 'Eliminar', () => { G.entries = G.entries.filter(x => x !== e); save(); m.close(); }) }, 'Eliminar ficha')));
       } else {
         const form = h('div', { class: 'form' },
           h('label', null, 'Nombre', h('input', { type: 'text', 'data-k': 'name', value: e.name })),

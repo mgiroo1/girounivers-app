@@ -17,7 +17,7 @@ window.G = window.G || {};
     current = id;
     G.$$('.view').forEach(v => v.classList.toggle('active', v.id === 'view-' + id));
     G.$$('#nav button').forEach(b => b.classList.toggle('active', b.dataset.tab === id));
-    G.$('#page-title').textContent = TABS[id].title;
+    G.$('#page-title').textContent = G.t(TABS[id].title);
     const m = TABS[id].mod(); if (m.show) m.show(true);
     G.kv.set('tab', id);
   };
@@ -50,9 +50,12 @@ window.G = window.G || {};
       const f = e.target.files[0]; if (!f) return;
       try { await G.backup.import(f); G.toast('Copia restaurada. Reiniciando…'); setTimeout(() => location.reload(), 900); } catch (err) { G.toast('Archivo no válido'); }
     } });
+    const langSel = h('select', { onchange: e => G.setLang(e.target.value) }, h('option', { value: 'es' }, 'Español'), h('option', { value: 'en' }, 'English'));
+    langSel.value = G.lang;
     const m = G.modal({
       title: 'Ajustes',
       body: h('div', { class: 'form' },
+        h('h4', null, 'Idioma'), langSel,
         h('h4', null, 'Mi ubicación de observación'), h('div', { class: 'row2' }, h('label', null, 'Latitud', lat), h('label', null, 'Longitud', lon)), gps,
         h('p', { class: 'muted small' }, 'Se usa para calcular altura y azimut, salidas y puestas. Por defecto se intenta usar el GPS.'),
         h('h4', null, 'Copia de seguridad'),
@@ -83,7 +86,7 @@ window.G = window.G || {};
     G.customEvents = (await G.kv.get('events')) || [];
 
     await G.sky.init(); G.solar.init(); G.catalog.init(); G.challengesUI.init(); G.agenda.init();
-    G.$$('#nav button').forEach(b => b.addEventListener('click', () => G.showTab(b.dataset.tab)));
+    G.$$('#nav button').forEach(b => { b.addEventListener('click', () => G.showTab(b.dataset.tab)); const lab = G.t(TABS[b.dataset.tab].title); b.setAttribute('aria-label', lab); b.setAttribute('title', lab); });
     G.$('#btn-settings').addEventListener('click', settings);
     const first = (await G.kv.get('tab')) || 'cielo';
     G.showTab(TABS[first] ? first : 'cielo');

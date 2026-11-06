@@ -5,6 +5,7 @@ window.G = window.G || {};
   const NAMES = { sun: 'Sol', moon: 'Luna', mercury: 'Mercurio', venus: 'Venus', mars: 'Marte', jupiter: 'Júpiter', saturn: 'Saturno', uranus: 'Urano', neptune: 'Neptuno' };
   const IDS = { sun: 'sol', moon: 'luna', mercury: 'mercurio', venus: 'venus', mars: 'marte', jupiter: 'jupiter', saturn: 'saturno', uranus: 'urano', neptune: 'neptuno' };
   const COLORS = { sun: '#ffd36b', moon: '#e9ecf5', mercury: '#c9c1b6', venus: '#fff1c9', mars: '#ff7b52', jupiter: '#ffd9a8', saturn: '#f4dca0', uranus: '#9fe3e8', neptune: '#7aa2ff' };
+  if (G.lang === 'en') Object.keys(NAMES).forEach(k => { NAMES[k] = G.t(NAMES[k]); });
   G.BODY_NAMES = NAMES; G.BODY_IDS = IDS; G.BODY_COLORS = COLORS;
 
   const S = {
@@ -177,7 +178,7 @@ window.G = window.G || {};
         if (!S.layers.below && a.alt < -2) continue;
         if (p.x < 0 || p.y < 0 || p.x > W || p.y > Hh) continue;
         ctx.fillStyle = `rgba(160,185,255,${a.alt < 0 ? 0.25 : 0.62})`;
-        ctx.fillText(c.name.toUpperCase().split('').join(' '), p.x, p.y);
+        ctx.fillText(G.t(c.name).toUpperCase().split('').join(' '), p.x, p.y);
         S.picks.push({ kind: 'constellation', o: c, x: p.x, y: p.y, w: 0.4 });
       }
       // nombres de estrellas
@@ -233,7 +234,7 @@ window.G = window.G || {};
     ctx.lineWidth = 1.6; ctx.strokeStyle = 'rgba(255,210,138,0.55)';
     { const pts = []; for (let az = 0; az <= 360; az += 3) pts.push(proj(0, az)); drawPath(pts); }
     ctx.font = '700 13px system-ui, sans-serif'; ctx.textAlign = 'center';
-    [['N', 0], ['NE', 45], ['E', 90], ['SE', 135], ['S', 180], ['SO', 225], ['O', 270], ['NO', 315]].forEach(([l, az]) => {
+    [['N', 0], ['NE', 45], ['E', 90], ['SE', 135], ['S', 180], [G.x('SO', 'SW'), 225], [G.x('O', 'W'), 270], [G.x('NO', 'NW'), 315]].forEach(([l, az]) => {
       const p = proj(2.5, az); if (!p) return;
       if (p.x < 8 || p.y < 8 || p.x > W - 8 || p.y > Hh - 8) return;
       ctx.fillStyle = l.length === 1 ? '#ffd28a' : 'rgba(255,210,138,0.55)';
@@ -257,7 +258,7 @@ window.G = window.G || {};
     if (S.gyro) { ctx.strokeStyle = 'rgba(134,201,255,0.5)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(W / 2, Hh / 2, 18, 0, 6.3); ctx.stroke(); }
 
     // etiqueta de hora
-    if (timeEl) timeEl.textContent = t.toLocaleString('es-ES', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) + (S.offset ? '' : ' · ahora');
+    if (timeEl) timeEl.textContent = t.toLocaleString(G.locale, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) + (S.offset ? '' : G.t(' · ahora'));
     G.$('#sky-fov').textContent = Math.round(S.fov) + '°';
   }
 
@@ -329,28 +330,28 @@ window.G = window.G || {};
 
   function describe(k) {
     const t = now(), loc = G.loc;
-    const fmtAA = (alt, az) => `Altura ${Math.round(alt)}° · Azimut ${Math.round(az)}°` + (alt < 0 ? ' (bajo el horizonte)' : '');
+    const fmtAA = (alt, az) => G.x(`Altura ${Math.round(alt)}° · Azimut ${Math.round(az)}°` + (alt < 0 ? ' (bajo el horizonte)' : ''), `Altitude ${Math.round(alt)}° · Azimuth ${Math.round(az)}°` + (alt < 0 ? ' (below the horizon)' : ''));
     let title, sub, lines = [], id = null, eqGet = null, rsName = '';
     if (k.kind === 'star') {
-      const s = k.o; title = s.name; sub = 'Estrella · constelación ' + s.con; id = s.id;
-      lines.push('Magnitud ' + G.fmtNum(s.mag, 2)); lines.push(fmtAA(s._alt, s._az)); eqGet = () => s;
+      const s = k.o; title = s.name; sub = G.x('Estrella · constelación ', 'Star · constellation ') + s.con; id = s.id;
+      lines.push(G.x('Magnitud ', 'Magnitude ') + G.fmtNum(s.mag, 2)); lines.push(fmtAA(s._alt, s._az)); eqGet = () => s;
     } else if (k.kind === 'dso') {
-      const o = k.o; title = o.name; sub = ({ galaxy: 'Galaxia', nebula: 'Nebulosa', cluster: 'Cúmulo abierto', globular: 'Cúmulo globular' })[o.type] + ' · ' + o.alias; id = o.id;
-      lines.push('Magnitud ' + G.fmtNum(o.mag, 1)); lines.push(fmtAA(o._alt, o._az)); eqGet = () => o;
+      const o = k.o; title = G.t(o.name); sub = G.td(({ galaxy: 'Galaxia', nebula: 'Nebulosa', cluster: 'Cúmulo abierto', globular: 'Cúmulo globular' })[o.type]) + ' · ' + o.alias; id = o.id;
+      lines.push(G.x('Magnitud ', 'Magnitude ') + G.fmtNum(o.mag, 1)); lines.push(fmtAA(o._alt, o._az)); eqGet = () => o;
     } else if (k.kind === 'constellation') {
-      const c = k.o; title = c.name; sub = 'Constelación · ' + c.abbr; id = c.id;
-      const a = A.eqToHor(c.ra, c.dec, A.lst(t, loc.lon), loc.lat); lines.push(fmtAA(a.alt, a.az)); lines.push(c.lines.length + ' trazos · ' + new Set(c.lines.flat()).size + ' estrellas dibujadas');
+      const c = k.o; title = G.t(c.name); sub = G.x('Constelación · ', 'Constellation · ') + c.abbr; id = c.id;
+      const a = A.eqToHor(c.ra, c.dec, A.lst(t, loc.lon), loc.lat); lines.push(fmtAA(a.alt, a.az)); lines.push(G.x(c.lines.length + ' trazos · ' + new Set(c.lines.flat()).size + ' estrellas dibujadas', c.lines.length + ' line paths · ' + new Set(c.lines.flat()).size + ' stars drawn'));
     } else {
       const n = k.id, b = k.o; title = NAMES[n]; id = IDS[n]; rsName = n;
       eqGet = tt => A.bodies(tt)[n];
-      if (n === 'sun') { sub = 'Nuestra estrella'; lines.push('⚠ Nunca mires al Sol sin filtro solar homologado.'); }
-      else if (n === 'moon') { sub = 'Satélite natural de la Tierra'; lines.push(b.phaseName + ' · ' + Math.round(b.illum * 100) + '% iluminada'); lines.push('Distancia: ' + G.fmtNum(b.distKm, 0) + ' km'); }
-      else { sub = 'Planeta'; lines.push('Magnitud ' + G.fmtNum(b.mag, 1) + ' · distancia a la Tierra ' + G.fmtNum(b.dist, 2) + ' UA'); }
+      if (n === 'sun') { sub = G.t('Nuestra estrella'); lines.push(G.t('⚠ Nunca mires al Sol sin filtro solar homologado.')); }
+      else if (n === 'moon') { sub = G.t('Satélite natural de la Tierra'); lines.push(G.t(b.phaseName) + ' · ' + Math.round(b.illum * 100) + G.x('% iluminada', '% illuminated')); lines.push(G.x('Distancia: ', 'Distance: ') + G.fmtNum(b.distKm, 0) + ' km'); }
+      else { sub = G.t('Planeta'); lines.push(G.x('Magnitud ' + G.fmtNum(b.mag, 1) + ' · distancia a la Tierra ' + G.fmtNum(b.dist, 2) + ' UA', 'Magnitude ' + G.fmtNum(b.mag, 1) + ' · distance to Earth ' + G.fmtNum(b.dist, 2) + ' AU')); }
       lines.push(fmtAA(b._alt, b._az));
     }
     if (eqGet) {
       const rs = A.riseSet(rsName, t, loc.lat, loc.lon, eqGet);
-      lines.push('Sale ' + G.fmtTime(rs.rise) + ' · se pone ' + G.fmtTime(rs.set) + ' (hoy)');
+      lines.push(G.x('Sale ' + G.fmtTime(rs.rise) + ' · se pone ' + G.fmtTime(rs.set) + ' (hoy)', 'Rises ' + G.fmtTime(rs.rise) + ' · sets ' + G.fmtTime(rs.set) + ' (today)'));
     }
     return { title, sub, lines, id };
   }
@@ -426,10 +427,10 @@ window.G = window.G || {};
     const list = h('div', { class: 'list' });
     const inp = h('input', { type: 'search', placeholder: 'Buscar estrella, planeta, constelación…', autofocus: true });
     const items = [];
-    Object.keys(NAMES).forEach(n => items.push({ name: NAMES[n], sub: 'Sistema solar', k: { kind: 'body', id: n, o: {} } }));
-    G.cons.forEach(c => items.push({ name: c.name, sub: 'Constelación', k: { kind: 'constellation', o: c } }));
-    G.stars.filter(s => s.mag < 3.6 && !/^[^\x00-\x7F]/.test(s.name)).forEach(s => items.push({ name: s.name, sub: 'Estrella · ' + s.con, k: { kind: 'star', o: s } }));
-    G.dsos.forEach(o => items.push({ name: o.name, sub: 'Cielo profundo', k: { kind: 'dso', o } }));
+    Object.keys(NAMES).forEach(n => items.push({ name: NAMES[n], sub: G.t('Sistema solar'), k: { kind: 'body', id: n, o: {} } }));
+    G.cons.forEach(c => items.push({ name: G.t(c.name), sub: G.x('Constelación', 'Constellation'), k: { kind: 'constellation', o: c } }));
+    G.stars.filter(s => s.mag < 3.6 && !/^[^\x00-\x7F]/.test(s.name)).forEach(s => items.push({ name: s.name, sub: G.x('Estrella · ', 'Star · ') + s.con, k: { kind: 'star', o: s } }));
+    G.dsos.forEach(o => items.push({ name: G.t(o.name), sub: G.t('Cielo profundo'), k: { kind: 'dso', o } }));
     const norm = s => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
     const m = G.modal({ title: 'Buscar en el cielo', body: h('div', null, inp, list) });
     const fill = () => {

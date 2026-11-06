@@ -73,7 +73,7 @@ window.G = window.G || {};
       const list = await G.photos.list(owner);
       grid.replaceChildren(...list.map((p, i) => {
         const u = URL.createObjectURL(p.thumb); urls.push(u);
-        return h('button', { class: 'thumb', onclick: () => viewer(p, list, i, refresh), 'aria-label': 'Foto ' + (i + 1) },
+        return h('button', { class: 'thumb', onclick: () => viewer(p, list, i, refresh), 'aria-label': G.t('Foto') + ' ' + (i + 1) },
           h('img', { src: u, alt: '' }), h('span', null, G.fmtDate(p.date)));
       }));
       if (!list.length) grid.append(h('div', { class: 'empty-thumbs' }, opts.emptyText || 'Aún no hay fotos'));

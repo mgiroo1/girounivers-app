@@ -6,7 +6,8 @@ window.G = window.G || {};
   G.h = function (tag, attrs, ...kids) {
     const e = document.createElement(tag);
     for (const k in attrs || {}) {
-      const v = attrs[k];
+      let v = attrs[k];
+      if ((k === 'placeholder' || k === 'aria-label' || k === 'title') && typeof v === 'string') v = G.t(v);
       if (v == null || v === false) continue;
       if (k === 'class') e.className = v;
       else if (k === 'style') e.style.cssText = v;
@@ -16,7 +17,7 @@ window.G = window.G || {};
       else if (v === true) e.setAttribute(k, '');
       else e.setAttribute(k, v);
     }
-    for (const c of kids.flat(3)) { if (c == null || c === false) continue; e.append(c.nodeType ? c : document.createTextNode(c)); }
+    for (const c of kids.flat(3)) { if (c == null || c === false) continue; e.append(c.nodeType ? c : document.createTextNode(typeof c === 'string' ? G.t(c) : c)); }
     return e;
   };
   const h = G.h;
@@ -32,7 +33,7 @@ window.G = window.G || {};
   G.toast = function (msg, ms) {
     let t = G.$('#toast');
     if (!t) { t = h('div', { id: 'toast' }); document.body.append(t); }
-    t.textContent = msg; t.classList.add('show');
+    t.textContent = G.t(msg); t.classList.add('show');
     clearTimeout(G._tt); G._tt = setTimeout(() => t.classList.remove('show'), ms || 2600);
   };
 
@@ -78,10 +79,10 @@ window.G = window.G || {};
     if (isNaN(d)) return '';
     const o = { day: 'numeric', month: 'short', year: 'numeric' };
     if (withTime) { o.hour = '2-digit'; o.minute = '2-digit'; }
-    return d.toLocaleString('es-ES', o);
+    return d.toLocaleString(G.locale, o);
   };
-  G.fmtTime = d => d ? d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : '—';
-  G.fmtNum = (n, dec) => Number(n).toLocaleString('es-ES', { maximumFractionDigits: dec == null ? 1 : dec });
+  G.fmtTime = d => d ? d.toLocaleTimeString(G.locale, { hour: '2-digit', minute: '2-digit' }) : '—';
+  G.fmtNum = (n, dec) => Number(n).toLocaleString(G.locale, { maximumFractionDigits: dec == null ? 1 : dec });
 
   // Guardar archivos (puente nativo en Android; descarga normal en navegador)
   G.saveFile = async function (name, mime, blob) {
@@ -95,7 +96,7 @@ window.G = window.G || {};
           GuFile.write(btoa(s));
         }
         const where = GuFile.close();
-        G.toast('Guardado en Descargas: ' + name);
+        G.toast(G.x('Guardado en Descargas: ', 'Saved to Downloads: ') + name);
         return where;
       } catch (e) { console.error(e); G.toast('No se pudo guardar el archivo'); return null; }
     }

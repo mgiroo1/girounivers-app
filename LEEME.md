@@ -19,4 +19,4 @@ App personal de astronomía (WebView + HTML/JS, funciona sin conexión).
 Catálogo ▸ toca una ficha ▸ “Editar”. Campos: descripción, información, historia y mitología, tamaño, periodo orbital, distancia al Sol o años luz, datos extra y notas. Las fotos se suben en la propia ficha.
 
 ## Copia de seguridad
-Ajustes ▸ Exportar copia (guarda un .json en Descargas con fichas, retos, eventos y fotos).
+Ajustes ▸ Idioma (Español/English) y Exportar copia (guarda un .json en Descargas con fichas, retos, eventos y fotos).
