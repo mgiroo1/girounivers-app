@@ -1,0 +1,7 @@
+<resources>
+    <style name="Theme.Girounivers" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@android:color/black</item>
+        <item name="android:statusBarColor">#04050C</item>
+        <item name="android:navigationBarColor">#060814</item>
+    </style>
+</resources>
