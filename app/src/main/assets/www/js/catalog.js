@@ -50,9 +50,9 @@ window.G = window.G || {};
       const cov = state.covers[e.id];
       const el = h('button', { class: 'card' + (cov ? ' has-cover' : ''), style: `background-image:radial-gradient(circle at 70% 25%, ${CAT_COLORS[e.cat]}33, transparent 55%)`, onclick: () => G.openEntry(e.id) },
         e.observed ? h('span', { class: 'badge' }, '✓') : null,
-        cov ? null : h('span', { class: 'glyph', style: 'color:' + CAT_COLORS[e.cat] }, G.catIcon(e.cat)),
+        h('span', { class: 'glyph', style: 'color:' + CAT_COLORS[e.cat] }, G.catIcon(e.cat)),
         h('div', { class: 'card-txt' }, h('b', null, e.name), h('small', null, G.td(e.sub) || catOf(e.cat).name)));
-      if (cov) G.photos.dataURL(cov, 'thumb').then(u => { if (u) el.style.backgroundImage = `linear-gradient(180deg,rgba(4,5,12,0) 35%,rgba(4,5,12,.88)),url("${u}")`; }).catch(() => { });
+      if (cov) G.photos.dataURL(cov, 'thumb').then(u => { if (u) el.style.backgroundImage = `radial-gradient(circle at 70% 25%, ${CAT_COLORS[e.cat]}88, transparent 60%), linear-gradient(180deg,rgba(4,5,12,0) 35%,rgba(4,5,12,.88)), url("${u}")`; }).catch(() => { });
       return el;
     }
     // grupos según el orden elegido
