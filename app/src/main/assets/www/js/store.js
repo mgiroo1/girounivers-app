@@ -83,15 +83,23 @@ window.G = window.G || {};
 
   async function resize(file, max, q) {
     try {
-      const bmp = await createImageBitmap(file, { imageOrientation: 'from-image' });
+      const bmp = await createImageBitmap(file, { imageOrientation: 'from-image' }).catch(() => createImageBitmap(file));
       const k = Math.min(1, max / Math.max(bmp.width, bmp.height));
       const c = document.createElement('canvas');
       c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
       c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
       const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', q));
+      if (!blob || !blob.size) return null;
       return { blob, w: c.width, h: c.height };
     } catch (e) { return null; }
   }
+
+  // Las imágenes se guardan como bytes (ArrayBuffer) y se muestran como data: URL;
+  // así no dependen de Blobs en IndexedDB ni de URLs blob: (que dan problemas en algunos WebView).
+  const readAs = (b, how) => new Promise((res, rej) => { const f = new FileReader(); f.onload = () => res(f.result); f.onerror = () => rej(f.error || new Error('lectura')); f[how](b); });
+  const toBuf = async b => b ? { buf: await readAs(b, 'readAsArrayBuffer'), type: b.type || 'image/jpeg' } : null;
+  const asBlob = s => !s ? null : (s instanceof Blob ? s : (s.buf ? new Blob([s.buf], { type: s.type || 'image/jpeg' }) : null));
+  const thumbCache = new Map();
 
   G.photos = {
     readExif,
@@ -99,16 +107,32 @@ window.G = window.G || {};
       const exif = await readExif(file);
       const big = await resize(file, 2200, 0.88);
       const th = await resize(file, 360, 0.8);
+      const bigBlob = big ? big.blob : file, thBlob = th ? th.blob : bigBlob;
       return {
-        blob: big ? big.blob : file, thumb: th ? th.blob : (big ? big.blob : file),
-        w: big ? big.w : 0, h: big ? big.h : 0,
+        blob: bigBlob, thumb: thBlob, w: big ? big.w : 0, h: big ? big.h : 0,
         date: exif.date || (file.lastModified ? new Date(file.lastModified) : new Date()),
         lat: exif.lat, lon: exif.lon, fromExif: !!exif.date
       };
     },
-    add: rec => tx('photos', 'readwrite', s => s.add(rec)),
-    put: rec => tx('photos', 'readwrite', s => s.put(rec)),
-    del: id => tx('photos', 'readwrite', s => s.delete(id)),
+    blobOf(rec, which) { return which === 'thumb' ? (asBlob(rec.th || rec.thumb) || asBlob(rec.img || rec.blob)) : asBlob(rec.img || rec.blob); },
+    async dataURL(rec, which) {
+      const key = rec.id != null && which === 'thumb' ? rec.id : null;
+      if (key != null && thumbCache.has(key)) return thumbCache.get(key);
+      const b = G.photos.blobOf(rec, which); if (!b) return '';
+      const u = await readAs(b, 'readAsDataURL');
+      if (key != null) thumbCache.set(key, u);
+      return u;
+    },
+    async prep(rec) {
+      const r = Object.assign({}, rec);
+      if (r.blob instanceof Blob) { r.img = await toBuf(r.blob); }
+      if (r.thumb instanceof Blob) { r.th = await toBuf(r.thumb); }
+      if (r.img || r.th) { delete r.blob; delete r.thumb; }
+      return r;
+    },
+    async add(rec) { const r = await G.photos.prep(rec); delete r.id; return tx('photos', 'readwrite', s => s.add(r)); },
+    async put(rec) { const r = await G.photos.prep(rec); thumbCache.delete(r.id); return tx('photos', 'readwrite', s => s.put(r)); },
+    del: id => { thumbCache.delete(id); return tx('photos', 'readwrite', s => s.delete(id)); },
     list: owner => tx('photos', 'readonly', s => s.index('owner').getAll(owner)).then(a => (a || []).sort((x, y) => new Date(x.date) - new Date(y.date))),
     all: () => tx('photos', 'readonly', s => s.getAll()),
     clear: () => tx('photos', 'readwrite', s => s.clear()),
@@ -116,14 +140,17 @@ window.G = window.G || {};
   };
 
   // ---- Copia de seguridad ----
-  const blobToDataURL = b => new Promise(r => { const f = new FileReader(); f.onload = () => r(f.result); f.readAsDataURL(b); });
   const dataURLToBlob = async u => (await fetch(u)).blob();
   G.backup = {
     async export() {
       const photos = await G.photos.all();
       const ph = [];
-      for (const p of photos) ph.push(Object.assign({}, p, { blob: await blobToDataURL(p.blob), thumb: await blobToDataURL(p.thumb) }));
-      const data = { app: 'girounivers', v: 1, date: new Date().toISOString(), kv: { entries: G.entries, challenges: G.challenges, events: G.customEvents, loc: G.loc }, photos: ph };
+      for (const p of photos) {
+        const o = Object.assign({}, p);
+        o.blob = await G.photos.dataURL(p, 'full'); o.thumb = await G.photos.dataURL(p, 'thumb');
+        delete o.img; delete o.th; ph.push(o);
+      }
+      const data = { app: 'girounivers', v: 2, date: new Date().toISOString(), kv: { entries: G.entries, challenges: G.challenges, events: G.customEvents, loc: G.loc }, photos: ph };
       const name = 'girounivers-copia-' + new Date().toISOString().slice(0, 10) + '.json';
       await G.saveFile(name, 'application/json', new Blob([JSON.stringify(data)], { type: 'application/json' }));
     },
@@ -133,7 +160,9 @@ window.G = window.G || {};
       for (const k of ['entries', 'challenges', 'events', 'loc']) if (data.kv[k]) await G.kv.set(k, data.kv[k]);
       await G.photos.clear();
       for (const p of data.photos || []) {
-        delete p.id; p.blob = await dataURLToBlob(p.blob); p.thumb = await dataURLToBlob(p.thumb);
+        delete p.id;
+        if (p.blob) p.blob = await dataURLToBlob(p.blob);
+        if (p.thumb) p.thumb = await dataURLToBlob(p.thumb);
         await G.photos.add(p);
       }
     }

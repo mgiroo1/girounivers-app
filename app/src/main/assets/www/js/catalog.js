@@ -9,29 +9,50 @@ window.G = window.G || {};
   G.catalogHas = id => !!G.entries.find(e => e.id === id);
   const save = G.debounce(() => G.kv.set('entries', G.entries), 300);
   const catOf = id => G.CATS.find(c => c.id === id) || G.CATS[5];
-  const filled = e => ['desc', 'info', 'myth', 'size', 'period', 'distSun', 'distLy'].filter(k => e[k] && e[k].trim()).length;
 
+  // icono de Saturno (planetas) o glifo de texto (resto)
+  let sid = 0;
+  G.catIcon = function (cat) {
+    const c = catOf(cat);
+    if (cat !== 'planeta') return c.icon;
+    const id = 'sat' + (sid++), NS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(NS, 'svg'); svg.setAttribute('viewBox', '0 0 48 48'); svg.setAttribute('class', 'saturn-ico'); svg.setAttribute('aria-hidden', 'true');
+    svg.innerHTML = `<defs><clipPath id="${id}b"><rect x="0" y="0" width="48" height="24"/></clipPath><clipPath id="${id}f"><rect x="0" y="24" width="48" height="24"/></clipPath></defs>` +
+      `<g transform="rotate(-28 24 24)"><ellipse cx="24" cy="24" rx="21" ry="6.2" fill="none" stroke="currentColor" stroke-width="2.2" clip-path="url(#${id}b)"/>` +
+      `<circle cx="24" cy="24" r="9.5" fill="currentColor"/><ellipse cx="24" cy="24" rx="21" ry="6.2" fill="none" stroke="#0a0d1f" stroke-width="5.4" clip-path="url(#${id}f)"/>` +
+      `<ellipse cx="24" cy="24" rx="21" ry="6.2" fill="none" stroke="currentColor" stroke-width="2.2" clip-path="url(#${id}f)"/></g>`;
+    return svg;
+  };
+
+  // foto de portada de cada ficha: la elegida por ti (e.cover) o, si no hay, la primera que subiste
   async function loadCovers() {
-    const all = await G.photos.all(); state.covers = {};
-    all.filter(p => p.owner.startsWith('e:')).sort((a, b) => new Date(a.date) - new Date(b.date)).forEach(p => { const id = p.owner.slice(2); if (!state.covers[id]) state.covers[id] = p.thumb; });
+    state.covers = {};
+    let all = [];
+    try { all = await G.photos.all(); } catch (e) { console.error(e); return; }
+    const by = {};
+    all.filter(p => p.owner.startsWith('e:')).sort((a, b) => new Date(a.date) - new Date(b.date)).forEach(p => { (by[p.owner.slice(2)] = by[p.owner.slice(2)] || []).push(p); });
+    Object.keys(by).forEach(id => {
+      const e = G.entries.find(x => x.id === id);
+      state.covers[id] = (e && e.cover != null && by[id].find(p => p.id === e.cover)) || by[id][0];
+    });
   }
-  let urls = [];
   async function renderGrid() {
     await loadCovers();
-    urls.forEach(u => URL.revokeObjectURL(u)); urls = [];
     const q = state.q.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
-    const list = G.entries.filter(e => (state.cat === 'todo' || e.cat === state.cat) && (!q || (e.name + ' ' + e.sub).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').includes(q)));
-    countEl.textContent = G.x(list.length + ' fichas · ' + G.entries.filter(e => e.observed).length + ' observadas', list.length + ' entries · ' + G.entries.filter(e => e.observed).length + ' observed');
+    const isM = state.cat === 'messier';
+    let list = G.entries.filter(e => (state.cat === 'todo' || (isM ? e.messier != null : e.cat === state.cat)) && (!q || (G.t(e.name) + ' ' + e.name + ' ' + e.sub).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').includes(q)));
+    if (isM) list = list.slice().sort((a, b) => a.messier - b.messier);
+    const obs = list.filter(e => e.observed).length;
+    countEl.textContent = isM ? G.x(obs + ' de ' + list.length + ' objetos Messier observados', obs + ' of ' + list.length + ' Messier objects observed')
+      : G.x(list.length + ' fichas · ' + G.entries.filter(e => e.observed).length + ' observadas', list.length + ' entries · ' + G.entries.filter(e => e.observed).length + ' observed');
     grid.replaceChildren(...list.map(e => {
-      const cov = state.covers[e.id]; let style = '';
-      if (cov) { const u = URL.createObjectURL(cov); urls.push(u); style = `background-image:linear-gradient(180deg,rgba(4,5,12,0) 30%,rgba(4,5,12,.85)),url(${u})`; }
-      else style = `background-image:radial-gradient(circle at 70% 25%, ${CAT_COLORS[e.cat]}33, transparent 55%)`;
-      const f = filled(e);
-      return h('button', { class: 'card', style, onclick: () => G.openEntry(e.id) },
+      const cov = state.covers[e.id];
+      const card = h('button', { class: 'card' + (cov ? ' has-cover' : ''), style: `background-image:radial-gradient(circle at 70% 25%, ${CAT_COLORS[e.cat]}33, transparent 55%)`, onclick: () => G.openEntry(e.id) },
         e.observed ? h('span', { class: 'badge' }, '✓') : null,
-        cov ? null : h('span', { class: 'glyph', style: 'color:' + CAT_COLORS[e.cat] }, catOf(e.cat).icon),
-        h('div', { class: 'card-txt' }, h('b', null, e.name), h('small', null, G.td(e.sub) || catOf(e.cat).name),
-          h('div', { class: 'dots' }, [0, 1, 2, 3, 4].map(i => h('i', { class: i < Math.ceil(f / 7 * 5) ? 'on' : '' })))));
+        cov ? null : h('span', { class: 'glyph', style: 'color:' + CAT_COLORS[e.cat] }, G.catIcon(e.cat)),
+        h('div', { class: 'card-txt' }, h('b', null, e.name), h('small', null, G.td(e.sub) || catOf(e.cat).name)));
+      if (cov) G.photos.dataURL(cov, 'thumb').then(u => { if (u) card.style.backgroundImage = `linear-gradient(180deg,rgba(4,5,12,0) 35%,rgba(4,5,12,.88)),url("${u}")`; }).catch(() => { });
+      return card;
     }));
     if (!list.length) grid.append(h('div', { class: 'empty' }, 'No hay fichas que coincidan. Pulsa ＋ para crear una.'));
   }
@@ -62,14 +83,15 @@ window.G = window.G || {};
       const cat = catOf(e.cat);
       const nodes = [];
       nodes.push(h('div', { class: 'entry-head' },
-        h('span', { class: 'glyph big', style: 'color:' + CAT_COLORS[e.cat] }, cat.icon),
+        h('span', { class: 'glyph big', style: 'color:' + CAT_COLORS[e.cat] }, G.catIcon(e.cat)),
         h('div', null, h('div', { class: 'muted small' }, cat.name), h('div', { class: 'muted' }, G.td(e.sub) || ' '))));
       nodes.push(h('div', { class: 'row-btns' },
         h('button', { class: 'btn small' + (e.observed ? ' primary' : ''), onclick: () => { e.observed = !e.observed; save(); render(); } }, e.observed ? '✓ Observado' : 'Marcar como observado'),
         skyBtn(), edit ? null : h('button', { class: 'btn small', onclick: () => { edit = true; render(); } }, '✎ Editar')));
-      nodes.push(h('section', { class: 'sec' }, h('h4', null, 'Fotos'), G.gallery('e:' + e.id, { emptyText: 'Añade fotos tuyas o de referencia' })));
+      nodes.push(h('section', { class: 'sec' }, h('h4', null, 'Fotos'), G.gallery('e:' + e.id, { emptyText: 'Añade fotos tuyas o de referencia', coverId: () => e.cover, onCover: id => { e.cover = id; save(); } })));
       if (!edit) {
-        nodes.push(section('Descripción', e.desc), section('Información', e.info), section('Historia y mitología', e.myth));
+        const tx = k => (e.seed && G.lang === 'en' && G.SEEDEN && G.SEEDEN[e.id] && G.SEEDEN[e.id][k]) || e[k];
+        nodes.push(section('Descripción', tx('desc')), section('Información', tx('info')), section('Historia y mitología', tx('myth')));
         const kvs = [viewKV('Tamaño', e.size), viewKV('Periodo orbital', e.period), viewKV('Distancia al Sol', e.distSun), viewKV('Distancia en años luz', e.distLy)].concat((e.extra || []).map(x => viewKV(x.k, x.v))).filter(Boolean);
         nodes.push(h('section', { class: 'sec' }, h('h4', null, 'Datos'), kvs.length ? h('div', { class: 'kvs' }, kvs) : h('p', { class: 'placeholder' }, 'Tamaño, periodo orbital, distancia al Sol o años luz… rellénalos en “Editar”.')));
         nodes.push(section('Mis notas', e.notes));
@@ -110,7 +132,7 @@ window.G = window.G || {};
     }
     function skyBtn() {
       const inSky = (G.starById && G.starById[e.id]) || G.cons.some(c => c.id === e.id) || G.dsos.some(o => o.id === e.id) || Object.values(G.BODY_IDS).includes(e.id);
-      const inSolar = ['sol', 'mercurio', 'venus', 'tierra', 'marte', 'jupiter', 'saturno', 'urano', 'neptuno'].includes(e.id);
+      const inSolar = G.solar.has(e.id);
       const els = [];
       if (inSky && e.id !== 'tierra') els.push(h('button', { class: 'btn small', onclick: () => { m.close(); G.sky.focusOn(e.id); } }, '✦ Ver en el cielo'));
       if (inSolar) els.push(h('button', { class: 'btn small', onclick: () => { m.close(); G.solar.focusOn(e.id); } }, '◉ Ver en el sistema solar'));
@@ -123,7 +145,7 @@ window.G = window.G || {};
     init() {
       const root = G.$('#view-catalogo');
       const search = h('input', { type: 'search', placeholder: 'Buscar en el catálogo…', oninput: e => { state.q = e.target.value; renderGrid(); } });
-      chips = h('div', { class: 'chips' }, [{ id: 'todo', name: 'Todo' }].concat(G.CATS).map(c => h('button', { class: 'chip' + (c.id === 'todo' ? ' on' : ''), 'data-c': c.id, onclick: ev => { state.cat = c.id; G.$$('.chip', chips).forEach(x => x.classList.toggle('on', x === ev.currentTarget)); renderGrid(); } }, c.name)));
+      chips = h('div', { class: 'chips' }, [{ id: 'todo', name: 'Todo' }, { id: 'messier', name: 'Messier' }].concat(G.CATS).map(c => h('button', { class: 'chip' + (c.id === 'todo' ? ' on' : ''), 'data-c': c.id, onclick: ev => { state.cat = c.id; G.$$('.chip', chips).forEach(x => x.classList.toggle('on', x === ev.currentTarget)); renderGrid(); } }, c.name)));
       countEl = h('div', { class: 'muted small count' });
       grid = h('div', { class: 'grid' });
       const fab = h('button', { class: 'fab', 'aria-label': 'Nueva ficha', onclick: newEntry }, '＋');
@@ -137,7 +159,7 @@ window.G = window.G || {};
   function newEntry() {
     const name = h('input', { type: 'text', placeholder: 'Nombre (p. ej. Cometa NEOWISE)' });
     const cat = h('select', null, G.CATS.map(c => h('option', { value: c.id }, c.name)));
-    if (state.cat !== 'todo') cat.value = state.cat;
+    if (state.cat !== 'todo' && state.cat !== 'messier') cat.value = state.cat;
     const m = G.modal({
       title: 'Nueva ficha', body: h('div', { class: 'form' }, h('label', null, 'Nombre', name), h('label', null, 'Categoría', cat)),
       actions: [h('button', { class: 'btn ghost', onclick: () => m.close() }, 'Cancelar'),

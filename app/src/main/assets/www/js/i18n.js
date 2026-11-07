@@ -75,11 +75,17 @@ window.G = window.G || {};
     'Galaxia de Andrómeda (M31)': 'Andromeda Galaxy (M31)', 'Galaxia del Triángulo (M33)': 'Triangulum Galaxy (M33)', 'Galaxia de Bode (M81)': "Bode's Galaxy (M81)", 'Galaxia del Remolino (M51)': 'Whirlpool Galaxy (M51)', 'Gran Nube de Magallanes': 'Large Magellanic Cloud', 'Pequeña Nube de Magallanes': 'Small Magellanic Cloud',
     'Nebulosa de Orión (M42)': 'Orion Nebula (M42)', 'Nebulosa de la Laguna (M8)': 'Lagoon Nebula (M8)', 'Nebulosa Dumbbell (M27)': 'Dumbbell Nebula (M27)', 'Nebulosa del Anillo (M57)': 'Ring Nebula (M57)', 'Nebulosa del Cangrejo (M1)': 'Crab Nebula (M1)', 'Nebulosa de Eta Carinae': 'Eta Carinae Nebula',
     'Pléyades (M45)': 'Pleiades (M45)', 'Pesebre (M44)': 'Beehive Cluster (M44)', 'Cúmulo de Hércules (M13)': 'Hercules Cluster (M13)', 'Cúmulo globular M22': 'Globular cluster M22', 'Cúmulo globular M4': 'Globular cluster M4', 'Cúmulo de Ptolomeo (M7)': "Ptolemy's Cluster (M7)", 'Doble Cúmulo de Perseo': 'Perseus Double Cluster',
+    'entre 2,1 y 3,3 UA (entre Marte y Júpiter)': 'between 2.1 and 3.3 AU (between Mars and Jupiter)', 'entre 30 y 50 UA (más allá de Neptuno)': 'between 30 and 50 AU (beyond Neptune)',
     'Estrella de tipo G2V': 'G2V-type star', 'Planeta del sistema solar': 'Solar System planet', 'Cometa periódico': 'Periodic comet'
   };
 
   // fragmentos para datos semilla (tamaños, periodos, distancias, subtítulos)
   const FR = [
+    ['mil millones de masas solares', 'billion solar masses'], ['millones de masas solares', 'million solar masses'], ['masas solares', 'solar masses'], ['Radio de Schwarzschild', 'Schwarzschild radius'],
+    ['Galaxia elíptica gigante', 'Giant elliptical galaxy'], ['Agujero negro supermasivo', 'Supermassive black hole'], ['agujero negro supermasivo', 'supermassive black hole'], ['Agujero negro estelar', 'Stellar-mass black hole'], ['Cuásar hiperluminoso', 'Hyperluminous quasar'],
+    ['Región del sistema solar', 'Solar System region'], ['mil millones de años luz', 'billion light-years'],
+    ['Galaxia espiral barrada', 'Barred spiral galaxy'], ['Galaxia espiral', 'Spiral galaxy'], ['Galaxia elíptica', 'Elliptical galaxy'], ['Galaxia lenticular', 'Lenticular galaxy'], ['Galaxia irregular', 'Irregular galaxy'],
+    ['Resto de supernova', 'Supernova remnant'], ['Nebulosa de emisión', 'Emission nebula'], ['Nebulosa planetaria', 'Planetary nebula'], ['Nebulosa de reflexión', 'Reflection nebula'], ['Asterismo', 'Asterism'], ['Nube estelar', 'Star cloud'], ['Estrella doble', 'Double star'],
     ['Planeta del sistema solar', 'Solar System planet'], ['Satélite natural de la Tierra', "Earth's natural satellite"], ['Satélite de la Tierra', 'Moon of Earth'], ['Satélite de ', 'Moon of '],
     ['Estrella · ', 'Star · '], ['Constelación · ', 'Constellation · '], ['Cúmulo abierto', 'Open cluster'], ['Cúmulo globular', 'Globular cluster'], ['Galaxia', 'Galaxy'], ['Nebulosa', 'Nebula'], ['Cometa periódico', 'Periodic comet'],
     ['alrededor de la Tierra', 'around the Earth'], ['de la Tierra', 'from Earth'], ['de diámetro', 'in diameter'], ['es el centro', 'is the centre'], ['próximo perihelio', 'next perihelion'], ['aprox.', 'approx.'],

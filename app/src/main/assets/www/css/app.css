@@ -168,3 +168,11 @@ select { appearance: none; }
 #toast { position: fixed; left: 50%; bottom: 96px; transform: translate(-50%, 20px); background: #1d2342; border: 1px solid var(--line); padding: 10px 16px; border-radius: 99px; z-index: 80; opacity: 0; transition: .25s; pointer-events: none; font-size: 14px; max-width: 86%; text-align: center; }
 #toast.show { opacity: 1; transform: translate(-50%, 0); }
 ::-webkit-scrollbar { width: 0; }
+
+/* v3: tarjetas con portada, icono Saturno, estrella de portada */
+.saturn-ico { width: 1em; height: 1em; display: block; }
+.glyph { line-height: 1; }
+.card.has-cover { background-size: cover; background-position: center; }
+.thumb .cover-star { position: absolute; top: 4px; right: 6px; color: var(--gold); font-style: normal; text-shadow: 0 0 6px #000; font-size: 15px; }
+.thumb img.broken, .form-photo.broken, .photo-big.broken { background: repeating-linear-gradient(45deg, #151a33, #151a33 8px, #1b2142 8px, #1b2142 16px); min-height: 80px; }
+.row-btns .btn.small { white-space: nowrap; }

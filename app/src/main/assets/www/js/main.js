@@ -78,6 +78,7 @@ window.G = window.G || {};
     let ent = (await G.kv.get('entries')) || [];
     const have = new Set(ent.map(e => e.id));
     G.catalogSeeds.forEach(s => { if (!have.has(s.id)) ent.push(JSON.parse(JSON.stringify(s))); });
+    ent.forEach(e => { if (e.messier == null) { const s = G.catalogSeeds.find(x => x.id === e.id && x.messier != null); if (s) e.messier = s.messier; } if (e.seed && e.messier != null && G.messierSub[e.messier]) e.sub = G.messierSub[e.messier]; });
     G.entries = ent; G.kv.set('entries', ent);
     let ch = (await G.kv.get('challenges')) || [];
     const hc = new Set(ch.map(c => c.id));
