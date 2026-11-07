@@ -72,12 +72,36 @@ window.G = window.G || {};
   }
 
   // owner: 'c:<id>' (reto) | 'e:<id>' (ficha). opts: emptyText, onChange, coverId(), onCover(id)
+  // Recepción de fotos desde el selector nativo de Android (llega en trozos base64)
+  const parts = {};
+  window.GUpick = {
+    owner: null,
+    chunk(name, mime, mod, total, idx, b64) {
+      const k = name + '|' + total; const a = parts[k] || (parts[k] = []);
+      try {
+        const bin = atob(b64), u = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+        a[idx] = u;
+      } catch (e) { G.toast(G.x('Error al recibir la foto', 'Error receiving the photo')); delete parts[k]; return; }
+      if (a.filter(Boolean).length === total) {
+        delete parts[k];
+        const file = new File(a, name, { type: mime || 'image/jpeg', lastModified: mod || Date.now() });
+        const g = window.GUpick.owner; if (g && g.take) g.take([file]);
+      }
+    },
+    error(msg) { if (msg) G.toast(G.x('No se pudo leer la foto: ', 'Could not read the photo: ') + msg, 5000); }
+  };
+
   G.gallery = function (owner, opts) {
     opts = opts || {};
     const wrap = h('div', { class: 'gallery' });
     const grid = h('div', { class: 'thumbs' });
     const input = h('input', { type: 'file', accept: 'image/*', multiple: true, style: 'display:none' });
-    const add = h('button', { class: 'btn primary small', onclick: () => input.click() }, '＋ Subir foto');
+    const native = !!(window.GuFile && window.GuFile.pickImages);
+    const add = h('button', { class: 'btn primary small', onclick: () => {
+      if (native) { try { window.GUpick.owner = handle; window.GuFile.pickImages(); return; } catch (e) { console.error(e); } }
+      input.click();
+    } }, '＋ Subir foto');
     wrap.append(grid, h('div', { class: 'gallery-actions' }, add, input));
     async function refresh() {
       let list = [];
@@ -91,18 +115,21 @@ window.G = window.G || {};
       if (!list.length) grid.append(h('div', { class: 'empty-thumbs' }, opts.emptyText || 'Aún no hay fotos'));
       if (opts.onChange) opts.onChange(list.length);
     }
-    input.addEventListener('change', async () => {
-      const files = [...input.files]; input.value = '';
+    let queue = Promise.resolve();
+    async function handle(files) {
       for (const f of files) {
         try {
-          G.toast('Procesando foto…');
+          G.toast(G.x('Procesando foto…', 'Processing photo…'));
           const p = await G.photos.process(f);
           await photoForm({ owner, blob: p.blob, thumb: p.thumb, date: p.date, lat: p.lat, lon: p.lon, place: '', note: '', w: p.w, h: p.h },
             async rec => { await G.photos.add(rec); }, p.fromExif ? 'Foto añadida (datos leídos de la imagen)' : 'Datos de la foto');
         } catch (err) { console.error(err); G.toast(G.x('No se pudo añadir la foto: ', 'Could not add the photo: ') + (err && err.message || err), 6000); }
         await refresh();
       }
-    });
+    }
+    const take = files => { queue = queue.then(() => handle(files)); };
+    take.owner = handle; handle.take = take;
+    input.addEventListener('change', () => { const files = [...input.files]; if (!files.length) return; take(files); setTimeout(() => { try { input.value = ''; } catch (e) {} }, 1500); });
     wrap.refresh = refresh;
     refresh();
     return wrap;

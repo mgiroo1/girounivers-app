@@ -2,13 +2,13 @@
 window.G = window.G || {};
 (function (G) {
   const h = G.h;
-  const CAT_COLORS = { planeta: '#ffb86b', satelite: '#c9d4ff', estrella: '#fff0a8', constelacion: '#8fb3ff', cometa: '#9ff0ff', objeto: '#ff9fe0', galaxia: '#c39bff' };
-  const state = { cat: 'todo', q: '', covers: {} };
-  let grid, chips, countEl;
+  const CAT_COLORS = { planeta: '#ffb86b', satelite: '#c9d4ff', estrella: '#fff0a8', constelacion: '#8fb3ff', cometa: '#9ff0ff', objeto: '#ff9fe0', galaxia: '#c39bff', nebulosa: '#ff8fb8', cumulo: '#ffd98a', agujero: '#9aa4c7' };
+  const state = { cat: 'todo', q: '', covers: {}, sort: 'tipo', closed: {} };
+  let grid, chips, countEl, sortEl;
 
   G.catalogHas = id => !!G.entries.find(e => e.id === id);
   const save = G.debounce(() => G.kv.set('entries', G.entries), 300);
-  const catOf = id => G.CATS.find(c => c.id === id) || G.CATS[5];
+  const catOf = id => G.CATS.find(c => c.id === id) || G.CATS[G.CATS.length - 1];
 
   // icono de Saturno (planetas) o glifo de texto (resto)
   let sid = 0;
@@ -41,19 +41,47 @@ window.G = window.G || {};
     const q = state.q.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
     const isM = state.cat === 'messier';
     let list = G.entries.filter(e => (state.cat === 'todo' || (isM ? e.messier != null : e.cat === state.cat)) && (!q || (G.t(e.name) + ' ' + e.name + ' ' + e.sub).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').includes(q)));
-    if (isM) list = list.slice().sort((a, b) => a.messier - b.messier);
+    const nm = e => G.t(e.name);
+    const byName = (a, b) => nm(a).localeCompare(nm(b), G.lang, { sensitivity: 'base', numeric: true });
     const obs = list.filter(e => e.observed).length;
     countEl.textContent = isM ? G.x(obs + ' de ' + list.length + ' objetos Messier observados', obs + ' of ' + list.length + ' Messier objects observed')
       : G.x(list.length + ' fichas · ' + G.entries.filter(e => e.observed).length + ' observadas', list.length + ' entries · ' + G.entries.filter(e => e.observed).length + ' observed');
-    grid.replaceChildren(...list.map(e => {
+    function card(e) {
       const cov = state.covers[e.id];
-      const card = h('button', { class: 'card' + (cov ? ' has-cover' : ''), style: `background-image:radial-gradient(circle at 70% 25%, ${CAT_COLORS[e.cat]}33, transparent 55%)`, onclick: () => G.openEntry(e.id) },
+      const el = h('button', { class: 'card' + (cov ? ' has-cover' : ''), style: `background-image:radial-gradient(circle at 70% 25%, ${CAT_COLORS[e.cat]}33, transparent 55%)`, onclick: () => G.openEntry(e.id) },
         e.observed ? h('span', { class: 'badge' }, '✓') : null,
         cov ? null : h('span', { class: 'glyph', style: 'color:' + CAT_COLORS[e.cat] }, G.catIcon(e.cat)),
         h('div', { class: 'card-txt' }, h('b', null, e.name), h('small', null, G.td(e.sub) || catOf(e.cat).name)));
-      if (cov) G.photos.dataURL(cov, 'thumb').then(u => { if (u) card.style.backgroundImage = `linear-gradient(180deg,rgba(4,5,12,0) 35%,rgba(4,5,12,.88)),url("${u}")`; }).catch(() => { });
-      return card;
-    }));
+      if (cov) G.photos.dataURL(cov, 'thumb').then(u => { if (u) el.style.backgroundImage = `linear-gradient(180deg,rgba(4,5,12,0) 35%,rgba(4,5,12,.88)),url("${u}")`; }).catch(() => { });
+      return el;
+    }
+    // grupos según el orden elegido
+    const groups = [];   // { key, title, items }
+    const put = (key, title, e) => { let g = groups.find(x => x.key === key); if (!g) groups.push(g = { key, title, items: [] }); g.items.push(e); };
+    let mode = state.sort;
+    if (mode === 'tipo') {
+      if (isM) { list.sort((a, b) => a.messier - b.messier); put('m', null, null); groups[0].items = list; }
+      else { list.sort(byName); G.CATS.forEach(c => list.filter(e => e.cat === c.id).forEach(e => put(c.id, c.name, e))); }
+    } else if (mode === 'az') {
+      list.sort(byName);
+      list.forEach(e => { const L = nm(e).normalize('NFD').replace(/[̀-ͯ]/g, '').charAt(0).toUpperCase(); const k = /[A-Z]/.test(L) ? L : '#'; put(k, k, e); });
+    } else {
+      list.sort(isM ? (a, b) => a.messier - b.messier : byName);
+      const keyed = list.map(e => ({ e, c: G.conOf(e) }));
+      const names = [...new Set(keyed.map(x => x.c))].sort((a, b) => a === G.SOLAR_NAME ? -1 : b === G.SOLAR_NAME ? 1 : a === G.NOCON_NAME ? 1 : b === G.NOCON_NAME ? -1 : G.t(a).localeCompare(G.t(b), G.lang));
+      names.forEach(n => keyed.filter(x => x.c === n).forEach(x => put(n, n, x.e)));
+    }
+    const nodes = [];
+    groups.forEach(g => {
+      const shut = !!g.title && !q && state.closed[mode + g.key];
+      if (g.title) {
+        const hd = h('button', { class: 'grp-h' + (shut ? ' shut' : ''), onclick: () => { state.closed[mode + g.key] = !state.closed[mode + g.key]; renderGrid(); } },
+          h('span', { class: 'chev' }, shut ? '▸' : '▾'), h('span', null, G.t(g.title)), h('em', null, String(g.items.length)));
+        nodes.push(hd);
+      }
+      if (!shut) g.items.forEach(e => nodes.push(card(e)));
+    });
+    grid.replaceChildren(...nodes);
     if (!list.length) grid.append(h('div', { class: 'empty' }, 'No hay fichas que coincidan. Pulsa ＋ para crear una.'));
   }
 
@@ -142,14 +170,17 @@ window.G = window.G || {};
   };
 
   G.catalog = {
-    init() {
+    async init() {
+      try { const s = await G.kv.get('catsort'); if (s === 'az' || s === 'con' || s === 'tipo') state.sort = s; } catch (e) { }
       const root = G.$('#view-catalogo');
       const search = h('input', { type: 'search', placeholder: 'Buscar en el catálogo…', oninput: e => { state.q = e.target.value; renderGrid(); } });
       chips = h('div', { class: 'chips' }, [{ id: 'todo', name: 'Todo' }, { id: 'messier', name: 'Messier' }].concat(G.CATS).map(c => h('button', { class: 'chip' + (c.id === 'todo' ? ' on' : ''), 'data-c': c.id, onclick: ev => { state.cat = c.id; G.$$('.chip', chips).forEach(x => x.classList.toggle('on', x === ev.currentTarget)); renderGrid(); } }, c.name)));
       countEl = h('div', { class: 'muted small count' });
+      sortEl = h('div', { class: 'sortbar' }, h('span', { class: 'muted small' }, 'Ordenar'),
+        [['tipo', 'Por tipo'], ['az', 'A–Z'], ['con', 'Constelación']].map(([k, n]) => h('button', { class: 'seg' + (k === state.sort ? ' on' : ''), 'data-s': k, onclick: () => { state.sort = k; G.kv.set('catsort', k); G.$$('.seg', sortEl).forEach(x => x.classList.toggle('on', x.dataset.s === k)); renderGrid(); } }, n)));
       grid = h('div', { class: 'grid' });
       const fab = h('button', { class: 'fab', 'aria-label': 'Nueva ficha', onclick: newEntry }, '＋');
-      root.append(h('div', { class: 'scroll' }, h('div', { class: 'catalog-top' }, search, chips, countEl), grid), fab);
+      root.append(h('div', { class: 'scroll' }, h('div', { class: 'catalog-top' }, search, chips, sortEl, countEl), grid), fab);
       renderGrid();
     },
     refresh: () => renderGrid(),

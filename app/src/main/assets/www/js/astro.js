@@ -16,7 +16,10 @@ window.G = window.G || {};
     jupiter: [100.4542, 2.76854e-5, 1.3030, -1.557e-7, 273.8777, 1.64505e-5, 5.20256, 0, 0.048498, 4.469e-9, 19.8950, 0.0830853001],
     saturn:  [113.6634, 2.38980e-5, 2.4886, -1.081e-7, 339.3939, 2.97661e-5, 9.55475, 0, 0.055546, -9.499e-9, 316.9670, 0.0334442282],
     uranus:  [74.0005, 1.3978e-5, 0.7733, 1.9e-8, 96.6612, 3.0565e-5, 19.18171, -1.55e-8, 0.047318, 7.45e-9, 142.5905, 0.011725806],
-    neptune: [131.7806, 3.0173e-5, 1.7700, -2.55e-7, 272.8461, -6.027e-6, 30.05826, 3.313e-8, 0.008606, 2.15e-9, 260.2471, 0.005995147]
+    neptune: [131.7806, 3.0173e-5, 1.7700, -2.55e-7, 272.8461, -6.027e-6, 30.05826, 3.313e-8, 0.008606, 2.15e-9, 260.2471, 0.005995147],
+    // planetas enanos (elementos medios en J2000, sin variación secular: precisión de unos grados)
+    ceres:   [80.27, 0, 10.59, 0, 73.60, 0, 2.7675, 0, 0.0758, 0, 95.67, 0.21421],
+    pluto:   [110.30, 0, 17.14, 0, 113.76, 0, 39.4817, 0, 0.2488, 0, 14.85, 0.003975]
   };
   const PLANETS = ['mercury', 'venus', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune'];
 
@@ -157,6 +160,7 @@ window.G = window.G || {};
     for (let k = 0; k <= n; k++) { const p = fromE(el, k * 360 / n); pts.push({ x: p.x, y: p.y, z: p.z }); }
     return pts;
   };
+  A.helio = function (name, d) { const el = elems(name, d); const p = fromE(el, kepler(el.M, el.e)); return { x: p.x, y: p.y, z: p.z, r: p.r }; };
   A.orbitInfo = function (name, d) { const el = elems(name === 'earth' ? 'sun' : name, d); return { a: el.a, e: el.e }; };
 
   // tiempo sidéreo local (grados)

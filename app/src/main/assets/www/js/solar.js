@@ -2,9 +2,10 @@
 window.G = window.G || {};
 (function (G) {
   const h = G.h, A = G.astro, RAD = A.RAD;
-  const ORDER = ['mercury', 'venus', 'earth', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune'];
-  const NAME = { sun: 'Sol', mercury: 'Mercurio', venus: 'Venus', earth: 'Tierra', mars: 'Marte', jupiter: 'Júpiter', saturn: 'Saturno', uranus: 'Urano', neptune: 'Neptuno', belt1: 'Cinturón de asteroides', belt2: 'Cinturón de Kuiper' };
-  const ID = { sun: 'sol', mercury: 'mercurio', venus: 'venus', earth: 'tierra', mars: 'marte', jupiter: 'jupiter', saturn: 'saturno', uranus: 'urano', neptune: 'neptuno', belt1: 'cinturon-asteroides', belt2: 'cinturon-kuiper' };
+  const ORDER = ['mercury', 'venus', 'earth', 'mars', 'ceres', 'jupiter', 'saturn', 'uranus', 'neptune', 'pluto'];
+  const DWARF = { ceres: 1, pluto: 1 };
+  const NAME = { sun: 'Sol', mercury: 'Mercurio', venus: 'Venus', earth: 'Tierra', mars: 'Marte', jupiter: 'Júpiter', saturn: 'Saturno', uranus: 'Urano', neptune: 'Neptuno', ceres: 'Ceres', pluto: 'Plutón', voyager1: 'Voyager 1', voyager2: 'Voyager 2', belt1: 'Cinturón de asteroides', belt2: 'Cinturón de Kuiper' };
+  const ID = { sun: 'sol', mercury: 'mercurio', venus: 'venus', earth: 'tierra', mars: 'marte', jupiter: 'jupiter', saturn: 'saturno', uranus: 'urano', neptune: 'neptuno', ceres: 'ceres', pluto: 'pluto', voyager1: 'voyager-1', voyager2: 'voyager-2', belt1: 'cinturon-asteroides', belt2: 'cinturon-kuiper' };
   // satélites principales: radio de órbita en píxeles (ilustrativo), periodo en días (negativo = retrógrado), distancia media real en km
   const MOONS = [
     { id: 'luna', parent: 'earth', es: 'Luna', per: 27.32, km: 384400, r: 13, col: '#e9ecf5' },
@@ -21,9 +22,13 @@ window.G = window.G || {};
   const MOON_BY = {};
   MOONS.forEach((m, i) => { m.ph = i * 61; MOON_BY[m.id] = m; NAME[m.id] = m.es; ID[m.id] = m.id; });
   if (G.lang === 'en') Object.keys(NAME).forEach(k => { NAME[k] = G.t(NAME[k]); });
-  const COL = { sun: '#ffd36b', mercury: '#b9b1a6', venus: '#f6dfa8', earth: '#5aa7ff', mars: '#ff7b52', jupiter: '#e8b98a', saturn: '#f1d79a', uranus: '#9fe3e8', neptune: '#6f93ff' };
-  const RPX = { sun: 10, mercury: 3, venus: 4.6, earth: 4.8, mars: 3.6, jupiter: 8.5, saturn: 7.2, uranus: 5.6, neptune: 5.4 };
-  const PERIOD = { mercury: '87,97 días', venus: '224,7 días', earth: '365,26 días', mars: '687 días', jupiter: '11,86 años', saturn: '29,45 años', uranus: '84 años', neptune: '164,8 años' };
+  const COL = { sun: '#ffd36b', mercury: '#b9b1a6', venus: '#f6dfa8', earth: '#5aa7ff', mars: '#ff7b52', jupiter: '#e8b98a', saturn: '#f1d79a', uranus: '#9fe3e8', neptune: '#6f93ff', ceres: '#c4b6a8', pluto: '#e0c9a8' };
+  const RPX = { sun: 10, mercury: 3, venus: 4.6, earth: 4.8, mars: 3.6, jupiter: 8.5, saturn: 7.2, uranus: 5.6, neptune: 5.4, ceres: 2.6, pluto: 3 };
+  const PERIOD = { mercury: '87,97 días', venus: '224,7 días', earth: '365,26 días', mars: '687 días', jupiter: '11,86 años', saturn: '29,45 años', uranus: '84 años', neptune: '164,8 años', ceres: '4,60 años', pluto: '247,9 años' };
+  // Voyager: distancia aproximada al Sol y dirección (longitud eclíptica); referencia: 18-nov-2026
+  const T0 = Date.UTC(2026, 10, 18, 10, 16);
+  const VOY = { voyager1: { d0: 173.1, v: 3.57, lon: 255.8, col: '#ff9f6b', yr: '1977', exit: '2012' }, voyager2: { d0: 144, v: 3.25, lon: 288.9, col: '#7ee0c3', yr: '1977', exit: '2018' } };
+  const voyDist = (k, t) => VOY[k].d0 + VOY[k].v * (t - T0) / (365.25 * 86400000);
   const SPEEDS = [['Tiempo real', 1], ['1 día/s', 86400], ['10 días/s', 864000], ['1 mes/s', 2629800], ['1 año/s', 31557600]];
 
   // cinturones: nube de puntos decorativa con la geometría real (UA)
@@ -70,7 +75,7 @@ window.G = window.G || {};
     S.dirty = false;
     const d = A.d(simDate()), B = A.bodies(d);
     const pos = { sun: { x: 0, y: 0 } };
-    ORDER.forEach(n => { pos[n] = n === 'earth' ? B.earth : B[n]; });
+    ORDER.forEach(n => { pos[n] = n === 'earth' ? B.earth : DWARF[n] ? A.helio(n, d) : B[n]; });
 
     // seguir un cuerpo: lo mantiene centrado (por encima de la hoja de información)
     if (S.follow && pos[S.follow]) {
@@ -148,6 +153,17 @@ window.G = window.G || {};
       S.hits.push({ id: k, x: p.x, y: p.y, box: true, w: box.w, h: box.h + 8 });
     });
 
+    // sondas Voyager (a su distancia real; solo se ven al alejar el zoom)
+    Object.keys(VOY).forEach(k => {
+      const v = VOY[k], r = voyDist(k, simDate().getTime()), a = v.lon * RAD;
+      const p = toScreen(r * Math.cos(a), r * Math.sin(a));
+      if (p.x < -60 || p.x > W + 60 || p.y < -30 || p.y > Hh + 30) return;
+      ctx.strokeStyle = v.col + '66'; ctx.setLineDash([3, 5]); ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(sp.x, sp.y); ctx.lineTo(p.x, p.y); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = v.col; ctx.beginPath(); ctx.moveTo(p.x, p.y - 5); ctx.lineTo(p.x + 5, p.y); ctx.lineTo(p.x, p.y + 5); ctx.lineTo(p.x - 5, p.y); ctx.closePath(); ctx.fill();
+      const box = pill(NAME[k], p.x, p.y - 17, S.sel === k);
+      S.hits.push({ id: k, x: p.x, y: p.y - 6, r: 22 });
+    });
+
     dateEl.textContent = simDate().toLocaleString(G.locale, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) + (S.simOffset === 0 && S.speed === 1 ? G.x(' · en vivo', ' · live') : '');
     if (S.sel) refreshInfo(B);
   }
@@ -160,14 +176,18 @@ window.G = window.G || {};
       rows = [['Orbita alrededor de', NAME[m.parent]],
         ['Periodo orbital', G.fmtNum(Math.abs(m.per), Math.abs(m.per) < 1 ? 3 : 2) + G.x(' días', ' days') + (m.per < 0 ? G.x(' (retrógrada)', ' (retrograde)') : '')],
         ['Distancia media al planeta', G.fmtNum(n === 'luna' ? B.moon.distKm : m.km, 0) + ' km']];
-      if (n !== 'luna') rows.push(['Nota', 'Posición orbital ilustrativa (no real)']);
-      else rows.push(['Fase', G.t(B.moon.phaseName) + ' · ' + Math.round(B.moon.illum * 100) + '%']);
+      if (n === 'luna') rows.push(['Fase', G.t(B.moon.phaseName) + ' · ' + Math.round(B.moon.illum * 100) + '%']);
+    } else if (VOY[n]) {
+      const dd = voyDist(n, simDate().getTime()), lh = dd * 499.005 / 3600;
+      rows = [['Distancia al Sol (aprox.)', G.fmtNum(dd, 1) + G.x(' UA · ', ' AU · ') + G.fmtNum(dd * 149.5978707, 0) + ' M km'],
+        ['Luz tarda en llegar', G.fmtNum(lh, 1) + G.x(' horas', ' hours')],
+        ['Lanzamiento', VOY[n].yr], ['Entró en el espacio interestelar', VOY[n].exit]];
     } else if (BELTS[n]) {
-      rows = [['Distancia al Sol', G.x(BELTS[n].txt[0], BELTS[n].txt[1])], ['Nota', 'Los puntos son ilustrativos, no asteroides reales']];
+      rows = [['Distancia al Sol', G.x(BELTS[n].txt[0], BELTS[n].txt[1])]];
     } else {
-      const p = n === 'sun' ? { x: 0, y: 0 } : (n === 'earth' ? B.earth : B[n]);
+      const p = n === 'sun' ? { x: 0, y: 0 } : (n === 'earth' ? B.earth : DWARF[n] ? A.helio(n, B.d) : B[n]);
       const rAU = n === 'sun' ? 0 : Math.hypot(p.x, p.y);
-      const dEarth = n === 'sun' ? B.sun.dist : n === 'earth' ? 0 : B[n].dist;
+      const dEarth = n === 'sun' ? B.sun.dist : n === 'earth' ? 0 : DWARF[n] ? Math.hypot(p.x - B.earth.x, p.y - B.earth.y, p.z || 0) : B[n].dist;
       rows = n === 'sun'
         ? [['Distancia a la Tierra', G.fmtNum(dEarth, 3) + G.x(' UA', ' AU')]]
         : [['Distancia al Sol', G.fmtNum(rAU, 3) + G.x(' UA · ', ' AU · ') + G.fmtNum(rAU * 149.5978707, 1) + ' M km'], n === 'earth' ? null : ['Distancia a la Tierra', G.fmtNum(dEarth, 3) + G.x(' UA', ' AU')], ['Periodo orbital', G.td(PERIOD[n])]];
@@ -237,6 +257,7 @@ window.G = window.G || {};
       const top = h('div', { class: 'sky-top' },
         h('button', { class: 'chip-btn', id: 'sc-mode', onclick: e => { S.mode = S.mode === 'comprimida' ? 'lineal' : 'comprimida'; e.currentTarget.textContent = G.t('Escala: ' + S.mode); S.dirty = true; } }, 'Escala: comprimida'),
         h('button', { class: 'chip-btn', onclick: () => { S.zoom = 1; S.px = 0; S.py = 0; setFollow(null); S.dirty = true; } }, '⌖ Centrar'),
+        h('button', { class: 'chip-btn', onclick: () => { S.mode = 'comprimida'; const b = G.$('#sc-mode'); if (b) b.textContent = G.t('Escala: comprimida'); S.zoom = 0.42; S.px = 0; S.py = 0; setFollow(null); S.dirty = true; } }, '◇ Voyager'),
         h('button', { class: 'chip-btn', onclick: () => { S.tilt = S.tilt > 0.9 ? 0.5 : S.tilt + 0.17; S.dirty = true; } }, '⟲ Inclinar'));
       const bar = h('div', { class: 'sky-time' },
         h('button', { onclick: () => { speedIdx = Math.max(0, speedIdx - 1); S.speed = SPEEDS[speedIdx][1]; spLabel.textContent = G.t(SPEEDS[speedIdx][0]); } }, '−'),
@@ -251,7 +272,7 @@ window.G = window.G || {};
       info._btn = h('button', { class: 'btn primary small' }, 'Ver ficha');
       info._follow = h('button', { class: 'btn small' }, '⌖ Seguir');
       info.append(h('div', { class: 'sky-info-main' }, info._title, h('button', { class: 'icon-btn', onclick: () => { S.sel = null; setFollow(null); info.classList.remove('open'); S.dirty = true; } }, '✕')), info._rows, info._moons, h('div', { class: 'row-btns' }, info._btn, info._follow));
-      root.append(cv, top, bar, info, h('div', { class: 'solar-note' }, 'Tamaños y distancias no están a escala real'));
+      root.append(cv, top, bar, info);
       ctx = cv.getContext('2d'); bind();
       new ResizeObserver(() => this.resize()).observe(root);
       const loop = t => {

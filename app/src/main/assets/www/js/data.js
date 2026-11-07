@@ -307,8 +307,11 @@ Doble Cúmulo de Perseo|02 20.0|57 08|4.0|cluster|NGC 869/884
     { id: 'estrella', name: 'Estrellas', icon: '✦' },
     { id: 'constelacion', name: 'Constelaciones', icon: '✧' },
     { id: 'cometa', name: 'Cometas', icon: '☄' },
-    { id: 'objeto', name: 'Objetos', icon: '❂' },
-    { id: 'galaxia', name: 'Galaxias', icon: '◌' }
+    { id: 'galaxia', name: 'Galaxias', icon: '◌' },
+    { id: 'nebulosa', name: 'Nebulosas', icon: '☁' },
+    { id: 'cumulo', name: 'Cúmulos y sistemas', icon: '⁂' },
+    { id: 'agujero', name: 'Agujeros negros', icon: '●' },
+    { id: 'objeto', name: 'Otros objetos', icon: '❂' }
   ];
 
   // Semillas del catálogo. Solo se rellenan datos medibles básicos; los textos los pones tú.

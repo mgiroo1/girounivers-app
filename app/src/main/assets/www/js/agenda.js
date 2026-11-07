@@ -2,9 +2,9 @@
 window.G = window.G || {};
 (function (G) {
   const h = G.h, A = G.astro, DEG = A.DEG, RAD = A.RAD;
-  const TYPES = [['todo', 'Todo'], ['lluvia', '☄ Lluvias'], ['luna', '☾ Luna'], ['planeta', '◉ Planetas'], ['eclipse', '◐ Eclipses'], ['estacion', '☀ Estaciones'], ['mio', '★ Míos']];
+  const TYPES = [['todo', 'Todo'], ['lluvia', '☄ Lluvias'], ['luna', '☾ Luna'], ['planeta', '◉ Planetas'], ['oposicion', '☍ Oposiciones'], ['posicion', '⌖ Posiciones'], ['eclipse', '◐ Eclipses'], ['estacion', '☀ Estaciones'], ['mio', '★ Míos']];
   const PN = { mercury: 'Mercurio', venus: 'Venus', mars: 'Marte', jupiter: 'Júpiter', saturn: 'Saturno', uranus: 'Urano', neptune: 'Neptuno' };
-  const ICON = { lluvia: '☄', luna: '☾', planeta: '◉', eclipse: '◐', estacion: '☀', mio: '★' };
+  const ICON = { lluvia: '☄', luna: '☾', planeta: '◉', oposicion: '☍', posicion: '⌖', eclipse: '◐', estacion: '☀', mio: '★' };
   if (G.lang === 'en') Object.keys(PN).forEach(k => { PN[k] = G.t(PN[k]); });
   const state = { f: 'todo', cache: null, cacheDay: '' };
   let list, chips;
@@ -52,20 +52,81 @@ window.G = window.G || {};
       return new Date((lo + hi) / 2);
     }
 
-    // oposiciones (planetas exteriores)
-    ['mars', 'jupiter', 'saturn', 'uranus', 'neptune'].forEach(n => {
-      const f = b => A.norm180(b[n].lon - b.sun.lon - 180);
+    // longitud geocéntrica (planetas enanos con elementos propios)
+    const DW = { ceres: 1, pluto: 1 };
+    const lonOf = (n, b) => { if (!DW[n]) return b[n].lon; const p = A.helio(n, b.d); return A.norm(Math.atan2(p.y - b.earth.y, p.x - b.earth.x) * DEG); };
+    const distOf = (n, b) => { if (!DW[n]) return b[n].dist; const p = A.helio(n, b.d); return Math.hypot(p.x - b.earth.x, p.y - b.earth.y, p.z || 0); };
+    const PN2 = Object.assign({}, PN, { ceres: G.t('Ceres'), pluto: G.t('Plutón') });
+    const MAGDW = { ceres: [7.0, '~7'], pluto: [14.4, '~14,4'] };
+    const elong = (n, b) => A.norm180(lonOf(n, b) - b.sun.lon);
+    // cruce de un valor por 0 (día a día, bisección fina). dir: -1 baja de + a −, 1 sube, 0 cualquiera
+    function crossings(fn, dir, maxAbs, cb) {
       for (let i = 0; i < HOURS; i += 24) {
-        const j = Math.min(HOURS - 1, i + 24);
-        const fa = f(rows[i].b), fb = f(rows[j].b);
-        if (fa < 0 && fb >= 0 && Math.abs(fa) < 90) {
-          let lo = rows[i].t.getTime(), hi = rows[j].t.getTime();
-          for (let k = 0; k < 16; k++) { const mid = (lo + hi) / 2; if (f(at(new Date(mid))) < 0) lo = mid; else hi = mid; }
-          const t = new Date((lo + hi) / 2), b = at(t)[n];
-          ev.push({ t, type: 'planeta', title: G.x(PN[n] + ' en oposición', PN[n] + ' at opposition'), desc: G.x(`${PN[n]} está en el punto opuesto al Sol: sale al anochecer, brilla toda la noche y está lo más cerca de la Tierra (${G.fmtNum(b.dist, 2)} UA, magnitud ${G.fmtNum(b.mag, 1)}). El mejor momento del año para observarlo.`, `${PN[n]} is opposite the Sun: it rises at dusk, shines all night and is closest to Earth (${G.fmtNum(b.dist, 2)} AU, magnitude ${G.fmtNum(b.mag, 1)}). The best time of the year to observe it.`) });
-        }
+        const j = Math.min(HOURS, i + 24); if (j === i) break;
+        const fa = fn(rows[i].b), fb = fn(rows[j].b);
+        if (Math.abs(fa) > maxAbs || Math.abs(fb) > maxAbs) continue;
+        const ok = dir < 0 ? (fa > 0 && fb <= 0) : dir > 0 ? (fa < 0 && fb >= 0) : (fa * fb < 0);
+        if (!ok) continue;
+        let lo = rows[i].t.getTime(), hi = rows[j].t.getTime(); const up = fa < 0;
+        for (let k = 0; k < 16; k++) { const mid = (lo + hi) / 2; const v = fn(at(new Date(mid))); if ((v < 0) === up) lo = mid; else hi = mid; }
+        cb(new Date((lo + hi) / 2), fa < fb ? 1 : -1);
+      }
+    }
+
+    // oposiciones (planetas exteriores y planetas enanos)
+    ['mars', 'ceres', 'jupiter', 'saturn', 'uranus', 'neptune', 'pluto'].forEach(n => {
+      crossings(b => A.norm180(lonOf(n, b) - b.sun.lon - 180), -1, 90, t => {
+        const b = at(t), dist = distOf(n, b), mag = DW[n] ? MAGDW[n] : [b[n].mag, G.fmtNum(b[n].mag, 1)];
+        const hint = n === 'pluto' ? G.x(' Hace falta un telescopio grande.', ' A large telescope is needed.') : n === 'ceres' ? G.x(' Visible con prismáticos.', ' Visible with binoculars.') : '';
+        ev.push({ t, type: 'oposicion', title: G.x(PN2[n] + ' en oposición', PN2[n] + ' at opposition'), desc: G.x(`${PN2[n]} está en el punto opuesto al Sol: sale al anochecer, brilla toda la noche y está lo más cerca de la Tierra (${G.fmtNum(dist, 2)} UA, magnitud ${DW[n] ? mag[1] : mag[1]}). El mejor momento del año para observarlo.${hint}`, `${PN2[n]} is opposite the Sun: it rises at dusk, shines all night and is closest to Earth (${G.fmtNum(dist, 2)} AU, magnitude ${DW[n] ? mag[1].replace(',', '.') : mag[1]}). The best time of the year to observe it.${hint}`) });
+      });
+    });
+
+    // conjunción con el Sol (el planeta no se ve) y cuadraturas
+    ['mercury', 'venus', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune'].forEach(n => {
+      crossings(b => elong(n, b), 0, 40, t => {
+        const b = at(t); let kind;
+        if (n === 'mercury' || n === 'venus') {
+          const inf = b[n].dist < b.sun.dist;
+          kind = inf ? [G.x('Conjunción inferior', 'Inferior conjunction'), G.x(`${PN[n]} pasa entre la Tierra y el Sol. No se ve; unos días después reaparece como astro matutino.`, `${PN[n]} passes between Earth and the Sun. It cannot be seen; a few days later it reappears as a morning object.`)]
+                     : [G.x('Conjunción superior', 'Superior conjunction'), G.x(`${PN[n]} pasa por detrás del Sol. No se ve; después aparecerá como astro vespertino.`, `${PN[n]} passes behind the Sun. It cannot be seen; afterwards it will appear as an evening object.`)];
+        } else kind = [G.x('Conjunción con el Sol', 'Conjunction with the Sun'), G.x(`${PN[n]} queda alineado con el Sol por detrás: no es observable durante unas semanas.`, `${PN[n]} lines up behind the Sun: it cannot be observed for a few weeks.`)];
+        ev.push({ t, type: 'posicion', title: `${PN[n]}: ${kind[0].toLowerCase()}`.replace(/^./, c => c), desc: kind[1] });
+      });
+    });
+    ['mars', 'jupiter', 'saturn'].forEach(n => {
+      [[90, G.x('Cuadratura este', 'Eastern quadrature'), G.x('90° al este del Sol: visible en la primera mitad de la noche.', '90° east of the Sun: visible in the first half of the night.')],
+       [-90, G.x('Cuadratura oeste', 'Western quadrature'), G.x('90° al oeste del Sol: visible en la segunda mitad de la noche y al amanecer.', '90° west of the Sun: visible in the second half of the night and at dawn.')]].forEach(q => {
+        crossings(b => A.norm180(elong(n, b) - q[0]), 0, 40, t => ev.push({ t, type: 'posicion', title: `${PN[n]}: ${q[1].toLowerCase()}`, desc: q[2] }));
+      });
+    });
+
+    // puntos estacionarios (cambio entre movimiento directo y retrógrado)
+    ['mercury', 'venus', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune'].forEach(n => {
+      const v = i => A.norm180(lonOf(n, rows[i + 24].b) - lonOf(n, rows[i].b));
+      for (let i = 0; i + 48 <= HOURS; i += 24) {
+        const v0 = v(i), v1 = v(i + 24);
+        if (v0 > 0 && v1 <= 0) ev.push({ t: rows[i + 24].t, type: 'posicion', title: G.x(`${PN[n]} inicia su retrogradación`, `${PN[n]} begins retrograde motion`), desc: G.x('Estacionario: el planeta parece detenerse y empieza a retroceder entre las estrellas durante unas semanas.', 'Stationary point: the planet seems to stop and starts moving backwards among the stars for a few weeks.') });
+        else if (v0 < 0 && v1 >= 0) ev.push({ t: rows[i + 24].t, type: 'posicion', title: G.x(`${PN[n]} retoma el movimiento directo`, `${PN[n]} resumes direct motion`), desc: G.x('Estacionario: termina la retrogradación y el planeta vuelve a avanzar hacia el este entre las estrellas.', 'Stationary point: retrograde motion ends and the planet moves eastward among the stars again.') });
       }
     });
+
+    // perihelio y afelio de la Tierra
+    for (let i = 24; i < HOURS - 24; i += 24) {
+      const d0 = rows[i - 24].b.sun.dist, d1 = rows[i].b.sun.dist, d2 = rows[i + 24].b.sun.dist;
+      if (d1 <= d0 && d1 < d2) ev.push({ t: rows[i].t, type: 'posicion', title: G.x('Perihelio de la Tierra', 'Earth at perihelion'), desc: G.x(`La Tierra está lo más cerca del Sol en su órbita (${G.fmtNum(d1, 3)} UA · ${G.fmtNum(d1 * 149.5979, 1)} M km).`, `Earth is at its closest to the Sun (${G.fmtNum(d1, 3)} AU · ${G.fmtNum(d1 * 149.5979, 1)} M km).`) });
+      if (d1 >= d0 && d1 > d2) ev.push({ t: rows[i].t, type: 'posicion', title: G.x('Afelio de la Tierra', 'Earth at aphelion'), desc: G.x(`La Tierra está lo más lejos del Sol en su órbita (${G.fmtNum(d1, 3)} UA · ${G.fmtNum(d1 * 149.5979, 1)} M km).`, `Earth is at its farthest from the Sun (${G.fmtNum(d1, 3)} AU · ${G.fmtNum(d1 * 149.5979, 1)} M km).`) });
+    }
+
+    // superlunas: Luna llena cerca del perigeo
+    for (let i = 1; i < HOURS - 1; i++) {
+      const d0 = rows[i - 1].b.moon.distKm, d1 = rows[i].b.moon.distKm, d2 = rows[i + 1].b.moon.distKm;
+      if (d1 < d0 && d1 <= d2 && d1 < 362500) {
+        const el = rows[i].b.moon.elong;
+        if (Math.abs(el - 180) < 14) ev.push({ t: rows[i].t, type: 'luna', title: G.x('Superluna (Luna llena en el perigeo)', 'Supermoon (full Moon at perigee)'), desc: G.x(`La Luna llena está a ${G.fmtNum(d1, 0)} km, cerca de su punto más cercano: se ve algo mayor y más brillante de lo habitual.`, `The full Moon is ${G.fmtNum(d1, 0)} km away, near its closest point: it looks slightly bigger and brighter than usual.`) });
+        else if (Math.abs(el) < 14 || Math.abs(el - 360) < 14) ev.push({ t: rows[i].t, type: 'luna', title: G.x('Luna nueva en el perigeo', 'New Moon at perigee'), desc: G.x(`La Luna nueva está a ${G.fmtNum(d1, 0)} km: mareas más vivas de lo normal en los días siguientes.`, `The new Moon is ${G.fmtNum(d1, 0)} km away: higher-than-usual tides over the following days.`) });
+      }
+    }
 
     // máxima elongación de Mercurio y Venus (día a día)
     ['mercury', 'venus'].forEach(n => {
@@ -164,7 +225,7 @@ window.G = window.G || {};
       const days = Math.ceil((e.t - today) / 86400000);
       return h('button', { class: 'ev t-' + e.type, onclick: () => detail(e) },
         h('div', { class: 'ev-date' }, h('b', null, e.t.getDate()), h('small', null, e.t.toLocaleString(G.locale, { month: 'short' }))),
-        h('div', { class: 'ev-main' }, h('b', null, ICON[e.type] + ' ' + e.title), h('small', { class: 'muted' }, e.t.toLocaleString(G.locale, { weekday: 'long' }) + (e.type === 'luna' || e.type === 'estacion' || e.type === 'planeta' ? ' · ' + G.fmtTime(e.t) : ''))),
+        h('div', { class: 'ev-main' }, h('b', null, ICON[e.type] + ' ' + e.title), h('small', { class: 'muted' }, e.t.toLocaleString(G.locale, { weekday: 'long' }) + (e.type === 'luna' || e.type === 'estacion' || e.type === 'planeta' || e.type === 'oposicion' || e.type === 'posicion' ? ' · ' + G.fmtTime(e.t) : ''))),
         h('div', { class: 'ev-in' }, days <= 0 ? G.t('hoy') : days === 1 ? G.t('mañana') : G.x('en ' + days + ' d', 'in ' + days + ' d')));
     };
     upcoming.forEach(e => {
@@ -197,7 +258,7 @@ window.G = window.G || {};
       chips = h('div', { class: 'chips' }, TYPES.map(([k, n]) => h('button', { class: 'chip' + (k === 'todo' ? ' on' : ''), onclick: ev => { state.f = k; G.$$('.chip', chips).forEach(x => x.classList.toggle('on', x === ev.currentTarget)); render(); } }, n)));
       list = h('div', { class: 'ev-list' }, h('div', { class: 'empty' }, 'Calculando el cielo…'));
       const fab = h('button', { class: 'fab', 'aria-label': 'Nuevo evento', onclick: newEvent }, '＋');
-      root.append(h('div', { class: 'scroll' }, h('div', { class: 'catalog-top' }, chips, h('div', { class: 'muted small count' }, 'Lluvias de estrellas, fases lunares, oposiciones y conjunciones de los próximos 13 meses, calculadas en tu móvil.')), list), fab);
+      root.append(h('div', { class: 'scroll' }, h('div', { class: 'catalog-top' }, chips, h('div', { class: 'muted small count' }, 'Lluvias de estrellas, fases lunares, oposiciones, conjunciones y posiciones relativas de los próximos 13 meses, calculadas en tu móvil.')), list), fab);
     },
     show() { setTimeout(render, 30); },
     compute

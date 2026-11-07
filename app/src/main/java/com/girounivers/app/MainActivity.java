@@ -22,7 +22,12 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.view.View;
 import android.view.Window;
+import android.content.ClipData;
+import android.database.Cursor;
 import java.io.File;
+import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.List;
 import java.io.FileOutputStream;
 import java.io.OutputStream;
 
@@ -31,7 +36,7 @@ public class MainActivity extends Activity {
     private ValueCallback<Uri[]> chooser;
     private GeolocationPermissions.Callback geoCb;
     private String geoOrigin;
-    private static final int REQ_FILE = 1, REQ_LOC = 2;
+    private static final int REQ_FILE = 1, REQ_LOC = 2, REQ_PICK = 3;
 
     @Override protected void onCreate(Bundle b) {
         super.onCreate(b);
@@ -82,10 +87,58 @@ public class MainActivity extends Activity {
     }
 
     @Override protected void onActivityResult(int req, int res, Intent data) {
+        if (req == REQ_PICK) {
+            List<Uri> uris = new ArrayList<>();
+            if (res == RESULT_OK && data != null) {
+                ClipData cd = data.getClipData();
+                if (cd != null) { for (int i = 0; i < cd.getItemCount(); i++) uris.add(cd.getItemAt(i).getUri()); }
+                else if (data.getData() != null) uris.add(data.getData());
+            }
+            if (uris.isEmpty()) web.evaluateJavascript("window.GUpick&&GUpick.error('')", null);
+            else sendPicked(uris);
+            return;
+        }
         if (req == REQ_FILE && chooser != null) {
             chooser.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(res, data));
             chooser = null;
         }
+    }
+
+    /** Selector de imágenes nativo: evita el selector de archivos del WebView, que en algunos móviles no devuelve la foto. */
+    private void sendPicked(final List<Uri> uris) {
+        new Thread(() -> {
+            for (Uri u : uris) {
+                try {
+                    String name = "foto.jpg"; long mod = 0;
+                    String mime = getContentResolver().getType(u); if (mime == null) mime = "image/jpeg";
+                    try (Cursor c = getContentResolver().query(u, null, null, null, null)) {
+                        if (c != null && c.moveToFirst()) {
+                            int i = c.getColumnIndex("_display_name"); if (i >= 0 && c.getString(i) != null) name = c.getString(i);
+                            int j = c.getColumnIndex("last_modified"); if (j >= 0 && !c.isNull(j)) mod = c.getLong(j);
+                            else { int k = c.getColumnIndex("date_modified"); if (k >= 0 && !c.isNull(k)) mod = c.getLong(k) * 1000L; }
+                        }
+                    } catch (Exception e) { }
+                    java.io.ByteArrayOutputStream bos = new java.io.ByteArrayOutputStream();
+                    try (InputStream in = getContentResolver().openInputStream(u)) {
+                        byte[] buf = new byte[65536]; int n;
+                        while ((n = in.read(buf)) > 0) bos.write(buf, 0, n);
+                    }
+                    byte[] all = bos.toByteArray();
+                    final int CH = 240000; final int total = Math.max(1, (all.length + CH - 1) / CH);
+                    final String fn = name.replace("\\", "_").replace("'", "_"), fm = mime; final long fmod = mod;
+                    for (int i = 0; i < total; i++) {
+                        int from = i * CH, to = Math.min(all.length, from + CH);
+                        final String b64 = Base64.encodeToString(all, from, to - from, Base64.NO_WRAP);
+                        final int idx = i;
+                        runOnUiThread(() -> web.evaluateJavascript("window.GUpick&&GUpick.chunk('" + fn + "','" + fm + "'," + fmod + "," + total + "," + idx + ",'" + b64 + "')", null));
+                        Thread.sleep(8);
+                    }
+                } catch (final Exception e) {
+                    final String msg = String.valueOf(e.getMessage()).replace("'", " ");
+                    runOnUiThread(() -> web.evaluateJavascript("window.GUpick&&GUpick.error('" + msg + "')", null));
+                }
+            }
+        }).start();
     }
 
     @Override public void onBackPressed() {
@@ -94,6 +147,16 @@ public class MainActivity extends Activity {
 
     /** Puente para guardar archivos (copias de seguridad, .ics) en Descargas. */
     class FileBridge {
+        @JavascriptInterface public void pickImages() {
+            runOnUiThread(() -> {
+                try {
+                    Intent i = new Intent(Intent.ACTION_GET_CONTENT);
+                    i.setType("image/*"); i.addCategory(Intent.CATEGORY_OPENABLE);
+                    i.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
+                    startActivityForResult(i, REQ_PICK);
+                } catch (Exception e) { web.evaluateJavascript("window.GUpick&&GUpick.error('No se pudo abrir la galería')", null); }
+            });
+        }
         private OutputStream out; private Uri uri; private File legacy;
         @JavascriptInterface public void open(String name, String mime) throws Exception {
             if (Build.VERSION.SDK_INT >= 29) {

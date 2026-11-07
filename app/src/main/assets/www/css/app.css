@@ -176,3 +176,12 @@ select { appearance: none; }
 .thumb .cover-star { position: absolute; top: 4px; right: 6px; color: var(--gold); font-style: normal; text-shadow: 0 0 6px #000; font-size: 15px; }
 .thumb img.broken, .form-photo.broken, .photo-big.broken { background: repeating-linear-gradient(45deg, #151a33, #151a33 8px, #1b2142 8px, #1b2142 16px); min-height: 80px; }
 .row-btns .btn.small { white-space: nowrap; }
+
+.sortbar { display: flex; align-items: center; gap: 6px; }
+.seg { background: var(--panel); border: 1px solid var(--line); color: var(--muted); border-radius: 8px; padding: 5px 11px; font-size: 12.5px; cursor: pointer; }
+.seg.on { color: var(--cyan); border-color: var(--cyan); }
+.grp-h { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; background: none; border: 0; border-bottom: 1px solid var(--line); color: var(--text); font-size: 13px; letter-spacing: .04em; text-transform: uppercase; padding: 8px 2px 5px; margin-top: 6px; cursor: pointer; text-align: left; }
+.grp-h .chev { color: var(--cyan); width: 12px; }
+.grp-h em { margin-left: auto; font-style: normal; color: var(--muted); font-size: 12px; }
+
+.ev.t-oposicion { border-left-color: #ffb86b; } .ev.t-posicion { border-left-color: #b39bff; }
