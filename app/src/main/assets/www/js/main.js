@@ -7,7 +7,8 @@ window.G = window.G || {};
     sistema: { title: 'Sistema solar', mod: () => G.solar },
     catalogo: { title: 'Catálogo', mod: () => G.catalog },
     retos: { title: 'Retos', mod: () => G.challengesUI },
-    agenda: { title: 'Agenda', mod: () => G.agenda }
+    agenda: { title: 'Agenda', mod: () => G.agenda },
+    tiempo: { title: 'Tiempo', mod: () => G.weather }
   };
   let current = null;
 
@@ -62,7 +63,7 @@ window.G = window.G || {};
         h('p', { class: 'muted small' }, 'Fichas, retos, eventos y todas tus fotos se guardan solo en este móvil. Exporta una copia de vez en cuando.'),
         h('div', { class: 'row-btns' }, h('button', { class: 'btn small', onclick: () => { G.toast('Preparando copia…'); G.backup.export(); } }, '⬇ Exportar copia'), h('button', { class: 'btn small', onclick: () => file.click() }, '⬆ Importar copia'), file),
         h('h4', null, 'Acerca de'),
-        h('p', { class: 'muted small' }, 'Girounivers · app personal de astronomía. Efemérides calculadas en el dispositivo (precisión de unos minutos de arco), sin conexión a internet. Catálogo estelar: ~220 estrellas brillantes y 21 objetos de cielo profundo.')),
+        h('p', { class: 'muted small' }, 'Girounivers · app personal de astronomía. Efemérides calculadas en el dispositivo (precisión de unos minutos de arco), sin conexión a internet. Solo la sección Tiempo descarga datos de Open-Meteo. Catálogo estelar: ~220 estrellas brillantes y 21 objetos de cielo profundo.')),
       actions: [h('button', { class: 'btn ghost', onclick: () => m.close() }, 'Cerrar'),
         h('button', { class: 'btn primary', onclick: () => {
           const la = parseFloat(lat.value), lo = parseFloat(lon.value);
@@ -87,7 +88,7 @@ window.G = window.G || {};
     G.challenges = ch; G.kv.set('challenges', ch);
     G.customEvents = (await G.kv.get('events')) || [];
 
-    await G.sky.init(); G.solar.init(); G.catalog.init(); G.challengesUI.init(); G.agenda.init();
+    await G.sky.init(); G.solar.init(); G.catalog.init(); G.challengesUI.init(); G.agenda.init(); G.weather.init();
     G.$$('#nav button').forEach(b => { b.addEventListener('click', () => G.showTab(b.dataset.tab)); const lab = G.t(TABS[b.dataset.tab].title); b.setAttribute('aria-label', lab); b.setAttribute('title', lab); });
     G.$('#btn-settings').addEventListener('click', settings);
     const first = (await G.kv.get('tab')) || 'cielo';
