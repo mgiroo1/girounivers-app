@@ -8,7 +8,8 @@ window.G = window.G || {};
     catalogo: { title: 'Catálogo', mod: () => G.catalog },
     retos: { title: 'Retos', mod: () => G.challengesUI },
     agenda: { title: 'Agenda', mod: () => G.agenda },
-    tiempo: { title: 'Tiempo', mod: () => G.weather }
+    tiempo: { title: 'Tiempo', mod: () => G.weather },
+    luz: { title: 'Contaminación lumínica', mod: () => G.luz }
   };
   let current = null;
 
@@ -17,7 +18,7 @@ window.G = window.G || {};
     if (current && TABS[current].mod().show) TABS[current].mod().show(false);
     current = id;
     G.$$('.view').forEach(v => v.classList.toggle('active', v.id === 'view-' + id));
-    G.$$('#nav button').forEach(b => b.classList.toggle('active', b.dataset.tab === id));
+    G.$$('#nav button, .icon-btn.hd').forEach(b => b.classList.toggle('active', b.dataset.tab === id));
     G.$('#page-title').textContent = G.t(TABS[id].title);
     const m = TABS[id].mod(); if (m.show) m.show(true);
     G.kv.set('tab', id);
@@ -88,8 +89,8 @@ window.G = window.G || {};
     G.challenges = ch; G.kv.set('challenges', ch);
     G.customEvents = (await G.kv.get('events')) || [];
 
-    await G.sky.init(); G.solar.init(); G.catalog.init(); G.challengesUI.init(); G.agenda.init(); G.weather.init();
-    G.$$('#nav button').forEach(b => { b.addEventListener('click', () => G.showTab(b.dataset.tab)); const lab = G.t(TABS[b.dataset.tab].title); b.setAttribute('aria-label', lab); b.setAttribute('title', lab); });
+    await G.sky.init(); G.solar.init(); G.catalog.init(); G.challengesUI.init(); G.agenda.init(); G.weather.init(); G.luz.init();
+    G.$$('#nav button, .icon-btn.hd').forEach(b => { b.addEventListener('click', () => G.showTab(b.dataset.tab)); const lab = G.t(TABS[b.dataset.tab].title); b.setAttribute('aria-label', lab); b.setAttribute('title', lab); });
     G.$('#btn-settings').addEventListener('click', settings);
     const first = (await G.kv.get('tab')) || 'cielo';
     G.showTab(TABS[first] ? first : 'cielo');

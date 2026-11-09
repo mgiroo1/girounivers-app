@@ -211,3 +211,16 @@ select { appearance: none; }
 .wx-night.on { border-color: var(--cyan); }
 .wx-day { flex: 1; text-transform: capitalize; }
 .wx-sc { min-width: 40px; text-align: center; border: 1px solid; border-radius: 999px; padding: 3px 0; font-weight: 700; font-size: 14px; }
+
+.icon-btn svg { width: 24px; height: 24px; stroke: currentColor; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.icon-btn.hd { color: var(--muted); }
+.icon-btn.hd.active { color: var(--gold); }
+#lz-canvas { position: absolute; inset: 0; touch-action: none; display: block; }
+.lz-legend { position: absolute; left: 12px; top: 10px; display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); background: rgba(4, 5, 12, .7); padding: 5px 9px; border-radius: 999px; border: 1px solid var(--line); }
+.lz-legend i { width: 70px; height: 8px; border-radius: 4px; background: linear-gradient(90deg, #02030a, #3a2a10, #ffb347, #fff3c4); }
+.lz-tools { position: absolute; right: 12px; top: 10px; display: flex; flex-direction: column; gap: 8px; }
+.lz-tools .chip-btn { width: 42px; height: 42px; padding: 0; font-size: 18px; }
+.lz-note { position: absolute; left: 12px; bottom: 10px; right: 70px; font-size: 11px; color: var(--muted); text-shadow: 0 0 4px #000; pointer-events: none; }
+.lz-sheet { position: absolute; left: 10px; right: 10px; bottom: 10px; background: var(--panel); backdrop-filter: blur(12px); border: 1px solid var(--line); border-radius: 16px; padding: 12px 14px; display: none; flex-direction: column; gap: 6px; }
+.lz-sheet.open { display: flex; }
+.lz-row { display: flex; align-items: center; justify-content: space-between; }
