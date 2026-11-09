@@ -1,6 +1,6 @@
 /* Girounivers · mapa de contaminación lumínica de Catalunya (v2)
    Capa Bortle: estimación propia por modelo (ley de Walker con población y distancia a los núcleos, calibrada con el Montsec). No es una medida.
-   Mapa base: CARTO / OpenStreetMap (necesita internet; sin conexión se ve solo la capa Bortle). */
+   Mapa base: OpenStreetMap (por defecto), ICGC o Esri (botón «Base»); necesita internet; sin conexión se ve solo la capa Bortle. */
 window.G = window.G || {};
 (function (G) {
   const h = G.h;
@@ -53,14 +53,22 @@ window.G = window.G || {};
   }
 
   // ---------- teselas del mapa base ----------
+  const BASES = {
+    osm: { name: 'OSM', dark: true, labels: true, max: 19, att: '© OpenStreetMap', url: (z, x, y) => `https://tile.openstreetmap.org/${z}/${x}/${y}.png` },
+    icgc: { name: 'ICGC', dark: false, labels: true, max: 18, att: '© ICGC', url: (z, x, y) => `https://tilemaps.icgc.cat/mapfactory/wmts/topo_suau/CAT3857/${z}/${x}/${y}.png` },
+    sat: { name: G.x('Satélite', 'Satellite'), dark: false, labels: false, max: 18, att: 'Esri World Imagery', url: (z, x, y) => `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${z}/${y}/${x}` }
+  };
+  const BKEYS = Object.keys(BASES); let baseKey = 'osm';
   const tiles = new Map(); let baseOk = 0, baseFail = 0;
-  const DPR = Math.min(2, window.devicePixelRatio || 1);
+  const maps = [];
+  function setBase(k) { baseKey = BASES[k] ? k : 'osm'; tiles.clear(); baseOk = 0; baseFail = 0; try { G.kv.set('luzbase', baseKey); } catch (e) { } maps.forEach(m => m.refresh()); }
   function tile(z, x, y, redraw) {
-    const k = z + '/' + x + '/' + y; let t = tiles.get(k); if (t) return t;
+    const k = baseKey + '/' + z + '/' + x + '/' + y; let t = tiles.get(k); if (t) return t;
     t = { img: new Image(), ok: false, bad: false }; tiles.set(k, t);
-    t.img.onload = () => { t.ok = true; baseOk++; redraw(); };
-    t.img.onerror = () => { t.bad = true; baseFail++; redraw(); };
-    t.img.src = `https://${'abcd'[(x + y) % 4]}.basemaps.cartocdn.com/dark_all/${z}/${x}/${y}${DPR > 1.4 ? '@2x' : ''}.png`;
+    const bk = baseKey;
+    t.img.onload = () => { if (bk !== baseKey) return; t.ok = true; baseOk++; redraw(); };
+    t.img.onerror = () => { if (bk !== baseKey) return; t.bad = true; baseFail++; redraw(); };
+    t.img.src = BASES[baseKey].url(z, x, y);
     if (tiles.size > 400) { const f = tiles.keys().next().value; tiles.delete(f); }
     return t;
   }
@@ -70,7 +78,7 @@ window.G = window.G || {};
     opts = opts || {};
     const S = { lng: 1.7, lat: 41.7, zoom: 7.1, dirty: true, sel: null, spots: [], photos: [], showPhotos: false, bortle: true, opacity: 0.55 };
     if (opts.start) { S.lng = opts.start.lon; S.lat = opts.start.lat; S.zoom = 11; }
-    let cv, ctx, W = 0, Hh = 0, sheet, active = false, off, offCtx, markers = [], poiBadge;
+    let baseLbl, attEl, cv, ctx, W = 0, Hh = 0, sheet, active = false, off, offCtx, markers = [], poiBadge;
     const WORLD = z => 256 * Math.pow(2, z);
     const mx = (lng, z) => (lng + 180) / 360 * WORLD(z);
     const my = (lat, z) => { const s = Math.sin(lat * Math.PI / 180); return (0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI)) * WORLD(z); };
@@ -98,14 +106,16 @@ window.G = window.G || {};
       S.dirty = false;
       ctx.fillStyle = '#04050c'; ctx.fillRect(0, 0, W, Hh);
       // mapa base
-      const tz = Math.min(15, Math.max(5, Math.floor(S.zoom + 0.75))), sc = Math.pow(2, S.zoom - tz), n = Math.pow(2, tz);
+      const B = BASES[baseKey], tz = Math.min(B.max, Math.max(5, Math.floor(S.zoom + 0.75))), sc = Math.pow(2, S.zoom - tz), n = Math.pow(2, tz);
       const cx = mx(S.lng, tz), cy = my(S.lat, tz);
       const T0 = Math.floor((cx - W / 2 / sc) / 256), T1 = Math.floor((cx + W / 2 / sc) / 256), U0 = Math.floor((cy - Hh / 2 / sc) / 256), U1 = Math.floor((cy + Hh / 2 / sc) / 256);
+      if (B.dark) ctx.filter = 'invert(1) hue-rotate(180deg) saturate(.55) brightness(.8)';
       for (let ty = U0; ty <= U1; ty++) for (let tx = T0; tx <= T1; tx++) {
         if (ty < 0 || ty >= n) continue;
         const t = tile(tz, ((tx % n) + n) % n, ty, redraw);
         if (t.ok) ctx.drawImage(t.img, W / 2 + (tx * 256 - cx) * sc, Hh / 2 + (ty * 256 - cy) * sc, 256 * sc + 0.6, 256 * sc + 0.6);
       }
+      ctx.filter = 'none';
       // capa Bortle
       if (S.bortle && GRID) drawBortle();
       // contorno
@@ -113,7 +123,7 @@ window.G = window.G || {};
       OUTLINE.forEach((p, i) => { const q = toScr(p[0], p[1]); i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y); }); ctx.stroke(); ctx.restore();
       // nombres de núcleos propios (solo si el mapa base no se ha cargado: sin conexión)
       ctx.textBaseline = 'middle'; ctx.font = '12px system-ui, sans-serif';
-      if (!baseOk) {
+      if (!baseOk || !B.labels) {
         const maxRank = S.zoom >= 10.5 ? 4 : S.zoom >= 9.3 ? 3 : S.zoom >= 8.3 ? 2 : 1;
         TOWNS.forEach(t => { if (t.rank > maxRank) return; const p = toScr(t.lon, t.lat); if (p.x < -40 || p.x > W + 40 || p.y < -10 || p.y > Hh + 10) return;
           ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(p.x, p.y, 2.2, 0, 6.3); ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(2,3,10,.85)'; ctx.strokeText(t.n, p.x + 6, p.y); ctx.fillText(t.n, p.x + 6, p.y); });
@@ -135,7 +145,7 @@ window.G = window.G || {};
       if (G.loc && !opts.pick) { const p = toScr(G.loc.lon, G.loc.lat); if (p.x > -10 && p.x < W + 10 && p.y > -10 && p.y < Hh + 10) { ctx.strokeStyle = '#86c9ff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(p.x, p.y, 6, 0, 6.3); ctx.stroke(); ctx.fillStyle = '#86c9ff'; ctx.beginPath(); ctx.arc(p.x, p.y, 2.5, 0, 6.3); ctx.fill(); } }
       if (S.sel && !opts.pick) { const p = toScr(S.sel.lon, S.sel.lat); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(p.x, p.y, 9, 0, 6.3); ctx.moveTo(p.x - 14, p.y); ctx.lineTo(p.x - 5, p.y); ctx.moveTo(p.x + 5, p.y); ctx.lineTo(p.x + 14, p.y); ctx.moveTo(p.x, p.y - 14); ctx.lineTo(p.x, p.y - 5); ctx.moveTo(p.x, p.y + 5); ctx.lineTo(p.x, p.y + 14); ctx.stroke(); }
       if (opts.pick) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(W / 2, Hh / 2, 12, 0, 6.3); ctx.moveTo(W / 2 - 22, Hh / 2); ctx.lineTo(W / 2 - 6, Hh / 2); ctx.moveTo(W / 2 + 6, Hh / 2); ctx.lineTo(W / 2 + 22, Hh / 2); ctx.moveTo(W / 2, Hh / 2 - 22); ctx.lineTo(W / 2, Hh / 2 - 6); ctx.moveTo(W / 2, Hh / 2 + 6); ctx.lineTo(W / 2, Hh / 2 + 22); ctx.stroke(); if (opts.onMove) opts.onMove(S.lat, S.lng); }
-      if (!baseOk && baseFail > 3) { ctx.fillStyle = 'rgba(2,3,10,.8)'; ctx.fillRect(16, Hh - 92, W - 32, 34); ctx.fillStyle = '#ffd28a'; ctx.textAlign = 'center'; ctx.fillText(G.x('Sin conexión: solo se ve la capa Bortle.', 'Offline: only the Bortle layer is shown.'), W / 2, Hh - 75); ctx.textAlign = 'left'; }
+      if (!baseOk && baseFail > 3) { ctx.fillStyle = 'rgba(2,3,10,.8)'; ctx.fillRect(16, Hh - 92, W - 32, 34); ctx.fillStyle = '#ffd28a'; ctx.textAlign = 'center'; ctx.fillText(G.x('El mapa base no carga: sin internet o prueba otro con «Base».', 'Base map not loading: offline, or try another with “Base”.'), W / 2, Hh - 75); ctx.textAlign = 'left'; }
     }
 
     function resize() { const r = root.getBoundingClientRect(); if (!r.width) return; const d = Math.min(2, window.devicePixelRatio || 1); W = r.width; Hh = r.height; cv.width = W * d; cv.height = Hh * d; cv.style.width = W + 'px'; cv.style.height = Hh + 'px'; ctx.setTransform(d, 0, 0, d, 0, 0); S.dirty = true; }
@@ -215,26 +225,30 @@ window.G = window.G || {};
         poiBadge = h('em', null, '0');
         const pt = h('button', { class: 'chip-btn', onclick: async () => { S.showPhotos = !S.showPhotos; pt.classList.toggle('on', S.showPhotos); if (S.showPhotos) { await loadPhotos(); if (!S.photos.length) G.toast(G.x('Aún no hay fotos con ubicación. Añádela al subir una foto.', 'No photos with a location yet. Add one when uploading a photo.'), 4000); } S.dirty = true; } }, '📷 ', G.x('Mis fotos', 'My photos'), ' ', poiBadge);
         const op = h('input', { type: 'range', min: 10, max: 100, value: Math.round(S.opacity * 100), 'aria-label': G.x('Opacidad', 'Opacity'), oninput: e => { S.opacity = e.target.value / 100; S.dirty = true; } });
-        root.append(h('div', { class: 'lz-top' }, h('div', { class: 'lz-chips' }, bt, pt), h('label', { class: 'lz-op' }, G.x('Capa', 'Layer'), op)));
+        const bs = h('button', { class: 'chip-btn', onclick: () => setBase(BKEYS[(BKEYS.indexOf(baseKey) + 1) % BKEYS.length]) }, '🗺 ', G.x('Base: ', 'Base: '), baseLbl = h('span', null, BASES[baseKey].name));
+        root.append(h('div', { class: 'lz-top' }, h('div', { class: 'lz-chips' }, bt, pt, bs), h('label', { class: 'lz-op' }, G.x('Capa', 'Layer'), op)));
         root.append(sheet);
       }
       // leyenda Bortle
       const leg = h('div', { class: 'lz-legend2' }, h('div', { class: 'lz-lbar' }, [1, 2, 3, 4, 5, 6, 7, 8, 9].map(i => h('i', { class: 'b' + i }, String(i)))), h('div', { class: 'lz-lt' }, h('span', null, G.x('Oscuro', 'Dark')), h('span', null, G.x('Escala Bortle (estimada)', 'Bortle scale (estimated)')), h('span', null, G.x('Luminoso', 'Bright'))));
-      root.append(tools, leg, h('div', { class: 'lz-note' }, '© OpenStreetMap · © CARTO'));
+      root.append(tools, leg, attEl = h('div', { class: 'lz-note' }, BASES[baseKey].att));
       bind();
     }
     build(); buildGrid();
     (function frame() { if (!cv.isConnected) return; requestAnimationFrame(frame); if (active && S.dirty && W) draw(); })();
-    return {
+    const api = {
+      refresh() { if (baseLbl) baseLbl.textContent = BASES[baseKey].name; if (attEl) attEl.textContent = BASES[baseKey].att; S.dirty = true; },
       state: S, centre: () => ({ lat: S.lat, lon: S.lng }), resize, info,
       setSpots(a) { S.spots = a; S.dirty = true; },
       show(on) { active = on; if (on) { if (!baseOk) { tiles.forEach((t, k) => { if (t.bad) tiles.delete(k); }); baseFail = 0; } if (S.showPhotos) loadPhotos(); setTimeout(() => { resize(); clamp(); S.dirty = true; }, 30); } }
     };
+    maps.push(api); return api;
   }
 
   let main;
   G.luz = {
     async init() {
+      try { const k = await G.kv.get('luzbase'); if (BASES[k]) baseKey = k; } catch (e) { }
       const root = G.$('#view-luz'); main = createMap(root);
       try { main.setSpots((await G.kv.get('spots')) || []); } catch (e) { }
       addEventListener('resize', () => main.resize());

@@ -253,3 +253,5 @@ select { appearance: none; }
 .lz-pickbox .lz-note { right: 60px; }
 .lz-readout { color: var(--muted); }
 .lz-sheet { bottom: 68px; max-height: 58%; overflow-y: auto; }
+.lz-lt span, .lz-note { background: rgba(4, 5, 12, .72); padding: 1px 6px; border-radius: 6px; text-shadow: none; }
+.lz-note { width: fit-content; }
