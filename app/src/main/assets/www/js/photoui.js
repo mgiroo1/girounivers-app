@@ -15,6 +15,7 @@ window.G = window.G || {};
     G.photos.dataURL(rec, which).then(u => { if (u) img.src = u; else img.classList.add('broken'); }).catch(() => img.classList.add('broken'));
   }
   G.setPhotoImg = setImg;
+  G.photoViewer = (rec, opts, refresh) => viewer(rec, opts || {}, refresh || (() => { }));
 
   // Formulario de datos de una foto (nueva o existente). Devuelve una promesa: true si se guardó.
   function photoForm(rec, onSave, title) {
@@ -30,13 +31,17 @@ window.G = window.G || {};
         try { const p = await G.getPosition(); lat.value = p.lat.toFixed(5); lon.value = p.lon.toFixed(5); } catch (e) { G.toast('No se pudo obtener la ubicación'); }
         gps.textContent = G.t('Usar mi ubicación actual');
       } }, 'Usar mi ubicación actual');
+      const pickMap = h('button', { class: 'btn small', type: 'button', onclick: async () => {
+        const r = await G.luzPick({ lat: parseFloat(lat.value), lon: parseFloat(lon.value) });
+        if (r) { lat.value = r.lat.toFixed(5); lon.value = r.lon.toFixed(5); }
+      } }, '📍 ' + G.x('Elegir en el mapa', 'Choose on the map'));
       const img = h('img', { class: 'form-photo' }); setImg(img, rec, 'thumb');
       m = G.modal({
         title: title || 'Datos de la foto',
         onClose: () => { if (!saving) resolve(false); },
         body: h('div', { class: 'form' }, img,
           h('label', null, 'Fecha y hora de la foto', date),
-          h('label', null, 'Ubicación', h('div', { class: 'row2' }, lat, lon), gps),
+          h('label', null, 'Ubicación', h('div', { class: 'row2' }, lat, lon), h('div', { class: 'row-btns' }, gps, pickMap)),
           h('label', null, 'Lugar', place),
           h('label', null, 'Notas', note)),
         actions: [h('button', { class: 'btn ghost', onclick: () => m.close() }, 'Cancelar'),

@@ -1,0 +1,467 @@
+diff --git a/app/src/main/assets/www/css/app.css b/app/src/main/assets/www/css/app.css
+index e162ca5..64b5972 100644
+--- a/app/src/main/assets/www/css/app.css
++++ b/app/src/main/assets/www/css/app.css
+@@ -224,3 +224,32 @@ select { appearance: none; }
+ .lz-sheet { position: absolute; left: 10px; right: 10px; bottom: 10px; background: var(--panel); backdrop-filter: blur(12px); border: 1px solid var(--line); border-radius: 16px; padding: 12px 14px; display: none; flex-direction: column; gap: 6px; }
+ .lz-sheet.open { display: flex; }
+ .lz-row { display: flex; align-items: center; justify-content: space-between; }
++/* mapa de contaminación lumínica v2 */
++.lz-canvas { position: absolute; inset: 0; touch-action: none; display: block; }
++.lz-top { position: absolute; left: 10px; right: 64px; top: 10px; display: flex; flex-direction: column; gap: 6px; pointer-events: none; }
++.lz-top > * { pointer-events: auto; }
++.lz-chips { display: flex; gap: 6px; flex-wrap: wrap; }
++.lz-chips .chip-btn { padding: 7px 12px; background: rgba(4, 5, 12, .78); }
++.lz-chips .chip-btn em { font-style: normal; color: var(--muted); font-size: 11px; }
++.lz-op { align-self: flex-start; display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--muted); background: rgba(4, 5, 12, .78); border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px; }
++.lz-op input { width: 90px; accent-color: #86c9ff; }
++.lz-tools { top: 10px; }
++.lz-legend2 { position: absolute; left: 10px; right: 64px; bottom: 28px; pointer-events: none; }
++.lz-lbar { display: flex; border-radius: 8px; overflow: hidden; border: 1px solid rgba(255, 255, 255, .25); }
++.lz-lbar i { flex: 1; text-align: center; font-style: normal; font-size: 11px; font-weight: 700; padding: 3px 0; color: #04050c; }
++.lz-lt { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); text-shadow: 0 0 4px #000; margin-top: 2px; }
++.b1 { background: #14143c; color: #cfd6ff !important; } .b2 { background: #1e3caa; color: #fff !important; } .b3 { background: #1e64e1; color: #fff !important; } .b4 { background: #28af55; } .b5 { background: #e1cd28; }
++.b6 { background: #f08c1e; } .b7 { background: #e63c28; color: #fff !important; } .b8 { background: #fa78af; } .b9 { background: #fff; }
++.lz-note { bottom: 8px; }
++.lz-binfo { display: flex; gap: 12px; align-items: center; }
++.lz-b { min-width: 44px; text-align: center; font-weight: 800; font-size: 17px; padding: 8px 0; border-radius: 12px; color: #04050c; }
++.lz-b.b1, .lz-b.b2, .lz-b.b3, .lz-b.b7 { color: #fff; }
++.lz-info { display: flex; flex-direction: column; gap: 5px; }
++.lz-thumbs { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; }
++.lz-thumb { flex: none; width: 92px; background: none; border: 0; color: var(--text); text-align: left; padding: 0; cursor: pointer; display: flex; flex-direction: column; gap: 2px; }
++.lz-thumb img { width: 92px; height: 70px; object-fit: cover; border-radius: 8px; background: #0d1124; }
++.lz-thumb small { font-size: 10.5px; }
++.lz-pickbox { position: relative; height: 52vh; min-height: 280px; border-radius: 12px; overflow: hidden; border: 1px solid var(--line); margin: 8px 0; }
++.lz-pickbox .lz-note { right: 60px; }
++.lz-readout { color: var(--muted); }
++.lz-sheet { bottom: 68px; max-height: 58%; overflow-y: auto; }
+diff --git a/app/src/main/assets/www/js/luz.js b/app/src/main/assets/www/js/luz.js
+index 50420ff..6fb3903 100644
+--- a/app/src/main/assets/www/js/luz.js
++++ b/app/src/main/assets/www/js/luz.js
+@@ -1,157 +1,261 @@
+-/* Girounivers · mapa de contaminación lumínica de Catalunya (imágenes nocturnas VIIRS de la NASA; necesita internet) */
++/* Girounivers · mapa de contaminación lumínica de Catalunya (v2)
++   Capa Bortle: estimación propia por modelo (ley de Walker con población y distancia a los núcleos, calibrada con el Montsec). No es una medida.
++   Mapa base: CARTO / OpenStreetMap (necesita internet; sin conexión se ve solo la capa Bortle). */
+ window.G = window.G || {};
+ (function (G) {
+   const h = G.h;
+-  // límites de Catalunya (el mapa no se puede mover fuera)
+   const BBOX = { w: -0.1, e: 3.6, s: 40.35, n: 43.0 };
+-  const MINZ = 7, MAXZ = 10;
+-  // contorno aproximado de Catalunya [lon, lat]
++  const MINZ = 7, MAXZ = 14;
+   const OUTLINE = [[3.17, 42.43], [3.32, 42.32], [3.20, 42.20], [3.13, 42.12], [3.20, 41.95], [3.13, 41.85], [2.95, 41.72], [2.80, 41.67], [2.62, 41.60], [2.44, 41.54], [2.19, 41.38], [1.95, 41.27], [1.80, 41.22], [1.55, 41.17], [1.25, 41.10], [1.05, 41.06], [0.85, 40.95], [0.80, 40.88], [0.88, 40.78], [0.90, 40.72], [0.72, 40.65], [0.59, 40.62], [0.48, 40.54], [0.33, 40.52], [0.23, 40.60], [0.17, 40.72], [0.24, 40.88], [0.30, 41.00], [0.28, 41.15], [0.38, 41.30], [0.34, 41.42], [0.36, 41.60], [0.46, 41.72], [0.57, 41.83], [0.50, 41.95], [0.60, 42.05], [0.70, 42.10], [0.66, 42.25], [0.70, 42.40], [0.68, 42.60], [0.65, 42.70], [0.68, 42.84], [0.80, 42.88], [0.95, 42.80], [1.10, 42.78], [1.33, 42.72], [1.43, 42.62], [1.45, 42.43], [1.73, 42.48], [1.98, 42.43], [2.12, 42.38], [2.33, 42.40], [2.45, 42.35], [2.67, 42.35], [2.87, 42.45], [2.97, 42.46], [3.17, 42.43]];
+-  // [nombre, lon, lat, rango (1 = siempre visible)]
+-  const CITIES = [['Barcelona', 2.17, 41.39, 1], ['Girona', 2.82, 41.98, 1], ['Lleida', 0.62, 41.62, 1], ['Tarragona', 1.25, 41.12, 1], ['Tortosa', 0.52, 40.81, 2], ['Reus', 1.11, 41.15, 3], ['Manresa', 1.83, 41.73, 2], ['Vic', 2.25, 41.93, 3], ['Figueres', 2.94, 42.27, 2], ['Vielha', 0.80, 42.70, 2], ['La Seu d’Urgell', 1.46, 42.36, 2], ['Puigcerdà', 1.93, 42.43, 3], ['Tremp', 0.89, 42.17, 3], ['Balaguer', 0.81, 41.79, 3], ['Cervera', 1.27, 41.67, 3], ['Igualada', 1.62, 41.58, 3], ['Vilafranca', 1.70, 41.35, 3], ['Mataró', 2.44, 41.54, 3], ['Olot', 2.49, 42.18, 3], ['Ripoll', 2.19, 42.20, 3], ['Berga', 1.85, 42.10, 3], ['Solsona', 1.52, 41.99, 3], ['Amposta', 0.58, 40.71, 3], ['Falset', 0.82, 41.15, 3], ['Sabadell', 2.11, 41.55, 3], ['Blanes', 2.79, 41.68, 3]];
++  // nombre | lon | lat | población (miles, aprox.). Incluye grandes núcleos vecinos que iluminan Catalunya.
++  const TOWNS = `Barcelona|2.173|41.385|1660;L'Hospitalet de Llobregat|2.100|41.360|270;Badalona|2.247|41.450|225;Terrassa|2.009|41.563|225;Sabadell|2.108|41.543|217;Lleida|0.620|41.618|140;Tarragona|1.245|41.119|136;Mataró|2.444|41.538|130;Santa Coloma de Gramenet|2.208|41.452|120;Reus|1.107|41.155|108;Girona|2.821|41.979|103;Sant Cugat del Vallès|2.085|41.472|93;Cornellà de Llobregat|2.071|41.356|89;Sant Boi de Llobregat|2.036|41.343|84;Rubí|2.033|41.493|78;Manresa|1.826|41.725|78;Vilanova i la Geltrú|1.726|41.224|69;Viladecans|2.014|41.314|67;Castelldefels|1.976|41.281|67;El Prat de Llobregat|2.095|41.327|64;Granollers|2.288|41.608|62;Cerdanyola del Vallès|2.140|41.491|58;Mollet del Vallès|2.213|41.540|52;Esplugues de Llobregat|2.088|41.377|47;Gavà|2.001|41.305|47;Vic|2.255|41.930|47;Figueres|2.961|42.266|47;Sant Feliu de Llobregat|2.045|41.383|45;Vilafranca del Penedès|1.699|41.346|40;Igualada|1.617|41.579|40;El Vendrell|1.535|41.219|40;Blanes|2.797|41.675|40;Lloret de Mar|2.845|41.699|40;Ripollet|2.160|41.498|38;Cambrils|1.051|41.067|36;Montcada i Reixac|2.188|41.485|36;Sant Adrià de Besòs|2.218|41.430|36;Olot|2.490|42.181|35;Sant Joan Despí|2.060|41.368|34;Tortosa|0.521|40.812|33;Salt|2.790|41.974|33;Sitges|1.811|41.237|30;Martorell|1.930|41.474|29;Calafell|1.570|41.200|29;Sant Vicenç dels Horts|2.008|41.392|29;Premià de Mar|2.360|41.490|28;Sant Andreu de la Barca|1.971|41.447|28;Salou|1.142|41.077|27;Pineda de Mar|2.690|41.627|27;Valls|1.250|41.287|25;Santa Perpètua de Mogoda|2.183|41.536|25;Molins de Rei|2.017|41.414|25;El Masnou|2.318|41.479|24;Palafrugell|3.163|41.917|23;Vila-seca|1.146|41.111|22;Sant Feliu de Guíxols|3.028|41.781|22;Vilassar de Mar|2.392|41.511|21;Amposta|0.581|40.714|21;Banyoles|2.768|42.119|20;Roses|3.177|42.262|20;Calella|2.665|41.614|19;Malgrat de Mar|2.743|41.646|19;Cardedeu|2.358|41.640|19;Parets del Vallès|2.233|41.574|19;Palamós|3.129|41.847|18;Sant Celoni|2.490|41.690|18;Berga|1.846|42.100|17;Balaguer|0.807|41.790|17;Tàrrega|1.141|41.647|17;Torredembarra|1.399|41.146|17;La Garriga|2.283|41.682|17;Montornès del Vallès|2.250|41.538|16;Mollerussa|0.895|41.632|15;Cubelles|1.671|41.209|15;Arenys de Mar|2.551|41.581|15;Sant Carles de la Ràpita|0.595|40.618|15;Castelló d'Empúries|3.075|42.257|12;La Seu d'Urgell|1.458|42.358|12;Deltebre|0.716|40.722|11;Ripoll|2.190|42.201|11;L'Escala|3.129|42.123|11;Castell-Platja d'Aro|3.068|41.818|11;Puigcerdà|1.930|42.432|9;Solsona|1.517|41.994|9;Cervera|1.272|41.670|9;Alcarràs|0.520|41.560|9;Montblanc|1.161|41.376|7;L'Ametlla de Mar|0.803|40.886|7;Ulldecona|0.449|40.595|6.5;Tremp|0.895|42.167|6.5;Vielha|0.797|42.702|6.5;Almacelles|0.435|41.728|6.5;Les Borges Blanques|0.867|41.520|6;Agramunt|1.097|41.787|5.5;Móra d'Ebre|0.642|41.092|5.5;Cardona|1.680|41.913|5;Flix|0.550|41.231|4;Falset|0.820|41.147|3;Gandesa|0.435|41.052|3;Cadaqués|3.278|42.289|3;Tossa de Mar|2.932|41.720|6;Sort|1.129|42.413|2.2;Camprodon|2.364|42.314|2.3;La Jonquera|2.873|42.419|3;Andorra la Vella i Escaldes|1.530|42.510|37;Perpinyà|2.895|42.699|120;Fraga|0.350|41.520|15;Monzón|0.196|41.914|17;Barbastro|0.127|42.035|17;Alcañiz|0.134|41.050|16;Caspe|0.040|41.233|10;Vinaròs|0.475|40.470|29;Zaragoza|-0.880|41.650|675;Mequinensa|0.295|41.373|2.3`.split(';').map(s => { const p = s.split('|'); return { n: p[0], lon: +p[1], lat: +p[2], pop: +p[3] * 1000, rank: +p[3] >= 100 ? 1 : +p[3] >= 40 ? 2 : +p[3] >= 15 ? 3 : 4 }; });
+   const SPECIAL = { id: 'montsec', name: 'Parc Astronòmic del Montsec', lat: 42.0516, lon: 0.7290, note: 'Reserva Starlight' };
+-  // capas candidatas (se usa la primera que responda)
+-  const LAYERS = [
+-    z => `https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_Black_Marble/default/GoogleMapsCompatible_Level8/${z.z}/${z.y}/${z.x}.png`,
+-    z => `https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_Black_Marble/default/2016-01-01/GoogleMapsCompatible_Level8/${z.z}/${z.y}/${z.x}.png`
+-  ];
+-  const S = { lng: 1.7, lat: 41.7, zoom: 7.1, layer: 0, dirty: true, sel: null, spots: [], tiles: new Map(), fails: 0, oks: 0 };
+-  let cv, ctx, W = 0, Hh = 0, sheet, root, active = false;
+ 
+-  const WORLD = z => 256 * Math.pow(2, z);
+-  const mx = (lng, z) => (lng + 180) / 360 * WORLD(z);
+-  const my = (lat, z) => { const s = Math.sin(lat * Math.PI / 180); return (0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI)) * WORLD(z); };
+-  const ilng = (x, z) => x / WORLD(z) * 360 - 180;
+-  const ilat = (y, z) => { const n = Math.PI - 2 * Math.PI * y / WORLD(z); return 180 / Math.PI * Math.atan(0.5 * (Math.exp(n) - Math.exp(-n))); };
+-  const toScr = (lng, lat) => ({ x: W / 2 + mx(lng, S.zoom) - mx(S.lng, S.zoom), y: Hh / 2 + my(lat, S.zoom) - my(S.lat, S.zoom) });
+-  const toGeo = (x, y) => ({ lng: ilng(mx(S.lng, S.zoom) + x - W / 2, S.zoom), lat: ilat(my(S.lat, S.zoom) + y - Hh / 2, S.zoom) });
+-  function clamp() {
+-    S.zoom = Math.max(MINZ, Math.min(MAXZ, S.zoom));
+-    S.lng = Math.max(BBOX.w, Math.min(BBOX.e, S.lng)); S.lat = Math.max(BBOX.s, Math.min(BBOX.n, S.lat));
++  // ---------- modelo de brillo del cielo ----------
++  const NAT = 22.0;                       // SQM del cielo natural (mag/arcsec²)
++  const BOUNDS = [21.99, 21.89, 21.69, 21.25, 20.49, 19.50, 18.94, 18.38]; // límite inferior de Bortle 1..8
++  const bortleOf = sqm => { for (let i = 0; i < BOUNDS.length; i++) if (sqm >= BOUNDS[i]) return i + 1; return 9; };
++  // índice continuo para colorear (1..9)
++  const bortleF = sqm => { const t = [22.0, 21.89, 21.69, 21.25, 20.49, 19.5, 18.94, 18.38, 17.5]; if (sqm >= t[0]) return 1; for (let i = 0; i < 8; i++) if (sqm >= t[i + 1]) return i + 1 + (t[i] - sqm) / (t[i] - t[i + 1]); return 9; };
++  const COLORS = [[8, 8, 30], [30, 60, 170], [30, 100, 225], [40, 175, 85], [225, 205, 40], [240, 140, 30], [230, 60, 40], [250, 120, 175], [255, 255, 255]];
++  const ALPHAS = [0, 0.35, 0.6, 0.8, 0.9, 0.95, 1, 1, 1];
++  const colorAt = f => { const i = Math.min(7, Math.max(0, Math.floor(f - 1))), t = Math.min(1, Math.max(0, f - 1 - i)); const a = COLORS[i], b = COLORS[i + 1]; return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t, ALPHAS[i] + (ALPHAS[i + 1] - ALPHAS[i]) * t]; };
++  const BDESC = [
++    ['Cielo excepcional', 'Exceptional sky', 'Vía Láctea con estructura, luz zodiacal y gegenschein.', 'Milky Way with structure, zodiacal light and gegenschein.'],
++    ['Cielo típicamente oscuro', 'Typically dark sky', 'Vía Láctea muy marcada; casi sin domos de luz.', 'Very strong Milky Way; almost no light domes.'],
++    ['Cielo rural', 'Rural sky', 'Vía Láctea clara; algo de luz en el horizonte hacia los pueblos.', 'Clear Milky Way; some glow at the horizon towards towns.'],
++    ['Transición rural / periurbano', 'Rural / suburban transition', 'Vía Láctea visible pero con menos detalle; domos de luz claros.', 'Milky Way visible but with less detail; obvious light domes.'],
++    ['Periurbano', 'Suburban sky', 'Vía Láctea débil, solo alta en el cielo.', 'Faint Milky Way, only high in the sky.'],
++    ['Periurbano brillante', 'Bright suburban sky', 'La Vía Láctea apenas se intuye en el cénit.', 'The Milky Way is barely hinted at the zenith.'],
++    ['Transición periurbano / urbano', 'Suburban / urban transition', 'Sin Vía Láctea; todo el cielo con velo luminoso.', 'No Milky Way; the whole sky has a bright veil.'],
++    ['Cielo urbano', 'City sky', 'Solo se ven las estrellas más brillantes y los planetas.', 'Only the brightest stars and planets are visible.'],
++    ['Centro de ciudad', 'Inner-city sky', 'Solo la Luna, los planetas y unas pocas estrellas.', 'Only the Moon, planets and a few stars.']];
++
++  const GR = 0.02, GW = Math.round((BBOX.e - BBOX.w) / GR) + 1, GH = Math.round((BBOX.n - BBOX.s) / GR) + 1;
++  let GRID = null;                         // Float32 con el aumento relativo de brillo (sin unidades)
++  const kmd = (lon1, lat1, lon2, lat2) => { const r = Math.PI / 180, dl = (lon2 - lon1) * r, dp = (lat2 - lat1) * r; const x = Math.sin(dp / 2) ** 2 + Math.cos(lat1 * r) * Math.cos(lat2 * r) * Math.sin(dl / 2) ** 2; return 12742 * Math.asin(Math.sqrt(x)); };
++  const walker = (pop, d) => 0.006 * pop * Math.pow(Math.max(d, 2.5), -2.5);
++  function brightAt(lon, lat) { let s = 0; for (const t of TOWNS) { if (Math.abs(t.lat - lat) > 3 || Math.abs(t.lon - lon) > 4) continue; s += walker(t.pop, kmd(lon, lat, t.lon, t.lat)); } return s; }
++  function buildGrid() { if (GRID) return; GRID = new Float32Array(GW * GH); for (let j = 0; j < GH; j++) for (let i = 0; i < GW; i++) GRID[j * GW + i] = brightAt(BBOX.w + i * GR, BBOX.s + j * GR); }
++  const sqmOf = s => Math.max(17.0, NAT - 2.5 * Math.log10(1 + s));
++  function gridSqm(lon, lat) {
++    const fx = (lon - BBOX.w) / GR, fy = (lat - BBOX.s) / GR; if (fx < 0 || fy < 0 || fx > GW - 1 || fy > GH - 1) return NAT;
++    const i = Math.min(GW - 2, Math.floor(fx)), j = Math.min(GH - 2, Math.floor(fy)), tx = fx - i, ty = fy - j;
++    const a = GRID[j * GW + i], b = GRID[j * GW + i + 1], c = GRID[(j + 1) * GW + i], d = GRID[(j + 1) * GW + i + 1];
++    return sqmOf(a * (1 - tx) * (1 - ty) + b * tx * (1 - ty) + c * (1 - tx) * ty + d * tx * ty);
++  }
++  function analyse(lat, lon) {
++    const terms = TOWNS.map(t => { const d = kmd(lon, lat, t.lon, t.lat); return { t, d, v: walker(t.pop, d) }; });
++    const total = terms.reduce((a, x) => a + x.v, 0), sqm = sqmOf(total);
++    const near = terms.slice().sort((a, b) => a.d - b.d)[0];
++    const top = terms.slice().sort((a, b) => b.v - a.v).slice(0, 3).map(x => ({ n: x.t.n, d: x.d, pct: Math.round(x.v / (total || 1) * 100) }));
++    return { sqm, bortle: bortleOf(sqm), near, top };
+   }
+-  const km = (a, b, c, d) => { const R = 6371, r = Math.PI / 180, dl = (c - a) * r, dp = (d - b) * r; const x = Math.sin(dp / 2) ** 2 + Math.cos(b * r) * Math.cos(d * r) * Math.sin(dl / 2) ** 2; return 2 * R * Math.asin(Math.sqrt(x)); };
+ 
+-  function tile(z, x, y) {
+-    const k = z + '/' + x + '/' + y; let t = S.tiles.get(k); if (t) return t;
+-    t = { img: new Image(), ok: false, bad: false, layer: S.layer }; S.tiles.set(k, t);
+-    t.img.onload = () => { t.ok = true; S.oks++; S.dirty = true; };
+-    t.img.onerror = () => {
+-      t.bad = true; S.fails++;
+-      if (!S.oks && S.layer < LAYERS.length - 1 && S.fails >= 2) { S.layer++; S.fails = 0; S.tiles.clear(); }
+-      S.dirty = true;
+-    };
+-    t.img.src = LAYERS[S.layer]({ z, x, y });
+-    if (S.tiles.size > 300) { const first = S.tiles.keys().next().value; S.tiles.delete(first); }
++  // ---------- teselas del mapa base ----------
++  const tiles = new Map(); let baseOk = 0, baseFail = 0;
++  const DPR = Math.min(2, window.devicePixelRatio || 1);
++  function tile(z, x, y, redraw) {
++    const k = z + '/' + x + '/' + y; let t = tiles.get(k); if (t) return t;
++    t = { img: new Image(), ok: false, bad: false }; tiles.set(k, t);
++    t.img.onload = () => { t.ok = true; baseOk++; redraw(); };
++    t.img.onerror = () => { t.bad = true; baseFail++; redraw(); };
++    t.img.src = `https://${'abcd'[(x + y) % 4]}.basemaps.cartocdn.com/dark_all/${z}/${x}/${y}${DPR > 1.4 ? '@2x' : ''}.png`;
++    if (tiles.size > 400) { const f = tiles.keys().next().value; tiles.delete(f); }
+     return t;
+   }
+ 
+-  function draw() {
+-    S.dirty = false;
+-    ctx.fillStyle = '#02030a'; ctx.fillRect(0, 0, W, Hh);
+-    const tz = Math.min(8, Math.floor(S.zoom)), sc = Math.pow(2, S.zoom - tz), n = Math.pow(2, tz);
+-    const cx = mx(S.lng, tz), cy = my(S.lat, tz);
+-    const x0 = Math.floor(cx - W / 2 / sc) , x1 = Math.floor(cx + W / 2 / sc), y0 = Math.floor(cy - Hh / 2 / sc), y1 = Math.floor(cy + Hh / 2 / sc);
+-    const T0 = Math.floor(x0 / 256), T1 = Math.floor(x1 / 256), U0 = Math.floor(y0 / 256), U1 = Math.floor(y1 / 256);
+-    let pending = 0;
+-    for (let ty = U0; ty <= U1; ty++) for (let tx = T0; tx <= T1; tx++) {
+-      if (ty < 0 || ty >= n) continue; const txw = ((tx % n) + n) % n;
+-      const t = tile(tz, txw, ty);
+-      const dx = W / 2 + (tx * 256 - cx) * sc, dy = Hh / 2 + (ty * 256 - cy) * sc;
+-      if (t.ok) ctx.drawImage(t.img, dx, dy, 256 * sc + 0.5, 256 * sc + 0.5); else if (!t.bad) pending++;
++  // ---------- mapa (instancia) ----------
++  function createMap(root, opts) {
++    opts = opts || {};
++    const S = { lng: 1.7, lat: 41.7, zoom: 7.1, dirty: true, sel: null, spots: [], photos: [], showPhotos: false, bortle: true, opacity: 0.55 };
++    if (opts.start) { S.lng = opts.start.lon; S.lat = opts.start.lat; S.zoom = 11; }
++    let cv, ctx, W = 0, Hh = 0, sheet, active = false, off, offCtx, markers = [], poiBadge;
++    const WORLD = z => 256 * Math.pow(2, z);
++    const mx = (lng, z) => (lng + 180) / 360 * WORLD(z);
++    const my = (lat, z) => { const s = Math.sin(lat * Math.PI / 180); return (0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI)) * WORLD(z); };
++    const ilng = (x, z) => x / WORLD(z) * 360 - 180;
++    const ilat = (y, z) => { const n = Math.PI - 2 * Math.PI * y / WORLD(z); return 180 / Math.PI * Math.atan(0.5 * (Math.exp(n) - Math.exp(-n))); };
++    const toScr = (lng, lat) => ({ x: W / 2 + mx(lng, S.zoom) - mx(S.lng, S.zoom), y: Hh / 2 + my(lat, S.zoom) - my(S.lat, S.zoom) });
++    const toGeo = (x, y) => ({ lng: ilng(mx(S.lng, S.zoom) + x - W / 2, S.zoom), lat: ilat(my(S.lat, S.zoom) + y - Hh / 2, S.zoom) });
++    function clamp() { S.zoom = Math.max(MINZ, Math.min(MAXZ, S.zoom)); S.lng = Math.max(BBOX.w, Math.min(BBOX.e, S.lng)); S.lat = Math.max(BBOX.s, Math.min(BBOX.n, S.lat)); }
++    const redraw = () => { S.dirty = true; };
++
++    function drawBortle() {
++      const k = 3, w = Math.ceil(W / k), hh = Math.ceil(Hh / k);
++      if (!off) { off = document.createElement('canvas'); offCtx = off.getContext('2d'); }
++      if (off.width !== w || off.height !== hh) { off.width = w; off.height = hh; }
++      const img = offCtx.createImageData(w, hh), d = img.data, z = S.zoom, cx = mx(S.lng, z), cy = my(S.lat, z);
++      for (let j = 0; j < hh; j++) { const lat = ilat(cy + (j * k + k / 2 - Hh / 2), z); for (let i = 0; i < w; i++) {
++        const lon = ilng(cx + (i * k + k / 2 - W / 2), z); const c = colorAt(bortleF(gridSqm(lon, lat))); const o = (j * w + i) * 4;
++        d[o] = c[0]; d[o + 1] = c[1]; d[o + 2] = c[2]; d[o + 3] = Math.round(c[3] * 255);
++      } }
++      offCtx.putImageData(img, 0, 0);
++      ctx.save(); ctx.globalAlpha = S.opacity; ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high'; ctx.drawImage(off, 0, 0, w * k, hh * k); ctx.restore();
+     }
+-    // contorno de Catalunya
+-    ctx.save(); ctx.strokeStyle = 'rgba(134,201,255,.75)'; ctx.lineWidth = 1.4; ctx.setLineDash([6, 4]); ctx.beginPath();
+-    OUTLINE.forEach((p, i) => { const q = toScr(p[0], p[1]); i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y); }); ctx.stroke(); ctx.restore();
+-    // ciudades
+-    ctx.font = '12px system-ui, sans-serif'; ctx.textBaseline = 'middle';
+-    const maxRank = S.zoom >= 9 ? 3 : S.zoom >= 8 ? 2 : 1;
+-    CITIES.forEach(c => {
+-      if (c[3] > maxRank) return; const p = toScr(c[1], c[2]); if (p.x < -40 || p.x > W + 40 || p.y < -10 || p.y > Hh + 10) return;
+-      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(p.x, p.y, 2.2, 0, 6.3); ctx.fill();
+-      ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(2,3,10,.85)'; ctx.strokeText(c[0], p.x + 6, p.y); ctx.fillStyle = 'rgba(233,236,250,.95)'; ctx.fillText(c[0], p.x + 6, p.y);
+-    });
+-    // lugares guardados y Montsec
+-    const pins = [SPECIAL].concat(S.spots);
+-    pins.forEach(s => { const p = toScr(s.lon, s.lat); if (p.x < -20 || p.x > W + 20 || p.y < -20 || p.y > Hh + 20) return;
+-      ctx.fillStyle = s.id === 'montsec' ? '#6be3a0' : '#ffd28a'; ctx.strokeStyle = '#02030a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(p.x, p.y - 8); ctx.lineTo(p.x + 6, p.y); ctx.lineTo(p.x, p.y + 8); ctx.lineTo(p.x - 6, p.y); ctx.closePath(); ctx.stroke(); ctx.fill();
+-      if (S.zoom >= 8.5 || s.id === 'montsec' && S.zoom >= 8) { ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(2,3,10,.85)'; ctx.strokeText(s.name, p.x + 9, p.y - 8); ctx.fillStyle = ctx.fillStyle; ctx.fillText(s.name, p.x + 9, p.y - 8); } });
+-    // mi ubicación
+-    if (G.loc) { const p = toScr(G.loc.lon, G.loc.lat); if (p.x > -10 && p.x < W + 10 && p.y > -10 && p.y < Hh + 10) { ctx.strokeStyle = '#86c9ff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(p.x, p.y, 6, 0, 6.3); ctx.stroke(); ctx.fillStyle = '#86c9ff'; ctx.beginPath(); ctx.arc(p.x, p.y, 2.5, 0, 6.3); ctx.fill(); } }
+-    if (S.sel) { const p = toScr(S.sel.lon, S.sel.lat); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(p.x, p.y, 9, 0, 6.3); ctx.moveTo(p.x - 14, p.y); ctx.lineTo(p.x - 5, p.y); ctx.moveTo(p.x + 5, p.y); ctx.lineTo(p.x + 14, p.y); ctx.moveTo(p.x, p.y - 14); ctx.lineTo(p.x, p.y - 5); ctx.moveTo(p.x, p.y + 5); ctx.lineTo(p.x, p.y + 14); ctx.stroke(); }
+-    // estado
+-    const lost = S.oks === 0 && S.layer === LAYERS.length - 1 && S.fails >= 2;
+-    if (lost) { ctx.fillStyle = 'rgba(2,3,10,.8)'; ctx.fillRect(20, Hh / 2 - 36, W - 40, 72); ctx.fillStyle = '#ffd28a'; ctx.textAlign = 'center'; ctx.fillText(G.x('Sin conexión: el mapa necesita internet.', 'Offline: the map needs internet.'), W / 2, Hh / 2 - 8); ctx.fillStyle = '#8d95bd'; ctx.fillText(G.x('Se verá cuando vuelvas a tener datos.', 'It will show when you are back online.'), W / 2, Hh / 2 + 14); ctx.textAlign = 'left'; }
+-    if (pending) S.dirty = false;
+-  }
+ 
+-  function resize() { if (!cv) return; const r = root.getBoundingClientRect(); const d = Math.min(2, window.devicePixelRatio || 1); W = Math.max(1, r.width); Hh = Math.max(1, r.height); cv.width = W * d; cv.height = Hh * d; cv.style.width = W + 'px'; cv.style.height = Hh + 'px'; ctx.setTransform(d, 0, 0, d, 0, 0); S.dirty = true; }
++    function draw() {
++      S.dirty = false;
++      ctx.fillStyle = '#04050c'; ctx.fillRect(0, 0, W, Hh);
++      // mapa base
++      const tz = Math.min(15, Math.max(5, Math.floor(S.zoom + 0.75))), sc = Math.pow(2, S.zoom - tz), n = Math.pow(2, tz);
++      const cx = mx(S.lng, tz), cy = my(S.lat, tz);
++      const T0 = Math.floor((cx - W / 2 / sc) / 256), T1 = Math.floor((cx + W / 2 / sc) / 256), U0 = Math.floor((cy - Hh / 2 / sc) / 256), U1 = Math.floor((cy + Hh / 2 / sc) / 256);
++      for (let ty = U0; ty <= U1; ty++) for (let tx = T0; tx <= T1; tx++) {
++        if (ty < 0 || ty >= n) continue;
++        const t = tile(tz, ((tx % n) + n) % n, ty, redraw);
++        if (t.ok) ctx.drawImage(t.img, W / 2 + (tx * 256 - cx) * sc, Hh / 2 + (ty * 256 - cy) * sc, 256 * sc + 0.6, 256 * sc + 0.6);
++      }
++      // capa Bortle
++      if (S.bortle && GRID) drawBortle();
++      // contorno
++      ctx.save(); ctx.strokeStyle = 'rgba(134,201,255,.8)'; ctx.lineWidth = 1.4; ctx.setLineDash([6, 4]); ctx.beginPath();
++      OUTLINE.forEach((p, i) => { const q = toScr(p[0], p[1]); i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y); }); ctx.stroke(); ctx.restore();
++      // nombres de núcleos propios (solo si el mapa base no se ha cargado: sin conexión)
++      ctx.textBaseline = 'middle'; ctx.font = '12px system-ui, sans-serif';
++      if (!baseOk) {
++        const maxRank = S.zoom >= 10.5 ? 4 : S.zoom >= 9.3 ? 3 : S.zoom >= 8.3 ? 2 : 1;
++        TOWNS.forEach(t => { if (t.rank > maxRank) return; const p = toScr(t.lon, t.lat); if (p.x < -40 || p.x > W + 40 || p.y < -10 || p.y > Hh + 10) return;
++          ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(p.x, p.y, 2.2, 0, 6.3); ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(2,3,10,.85)'; ctx.strokeText(t.n, p.x + 6, p.y); ctx.fillText(t.n, p.x + 6, p.y); });
++      }
++      // lugares guardados y Montsec
++      if (!opts.pick) [SPECIAL].concat(S.spots).forEach(s => { const p = toScr(s.lon, s.lat); if (p.x < -20 || p.x > W + 20 || p.y < -20 || p.y > Hh + 20) return;
++        const col = s.id === 'montsec' ? '#6be3a0' : '#ffd28a'; ctx.fillStyle = col; ctx.strokeStyle = '#02030a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(p.x, p.y - 8); ctx.lineTo(p.x + 6, p.y); ctx.lineTo(p.x, p.y + 8); ctx.lineTo(p.x - 6, p.y); ctx.closePath(); ctx.stroke(); ctx.fill();
++        if (S.zoom >= 8.5 || (s.id === 'montsec' && S.zoom >= 8)) { ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(2,3,10,.85)'; ctx.strokeText(s.name, p.x + 9, p.y - 9); ctx.fillStyle = col; ctx.fillText(s.name, p.x + 9, p.y - 9); } });
++      // fotos
++      markers = [];
++      if (S.showPhotos && !opts.pick) {
++        const cells = new Map();
++        S.photos.forEach(ph => { const p = toScr(ph.lon, ph.lat); if (p.x < -30 || p.x > W + 30 || p.y < -30 || p.y > Hh + 30) return; const k = Math.round(p.x / 44) + ',' + Math.round(p.y / 44); let c = cells.get(k); if (!c) cells.set(k, c = { x: 0, y: 0, list: [] }); c.x += p.x; c.y += p.y; c.list.push(ph); });
++        cells.forEach(c => { const x = c.x / c.list.length, y = c.y / c.list.length; markers.push({ x, y, list: c.list });
++          ctx.fillStyle = '#ff8fb8'; ctx.strokeStyle = '#04050c'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, y, 11, 0, 6.3); ctx.fill(); ctx.stroke();
++          ctx.fillStyle = '#04050c'; ctx.font = 'bold 12px system-ui'; ctx.textAlign = 'center'; ctx.fillText(c.list.length > 1 ? String(c.list.length) : '📷', x, y + 0.5); ctx.textAlign = 'left'; });
++      }
++      // mi ubicación
++      if (G.loc && !opts.pick) { const p = toScr(G.loc.lon, G.loc.lat); if (p.x > -10 && p.x < W + 10 && p.y > -10 && p.y < Hh + 10) { ctx.strokeStyle = '#86c9ff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(p.x, p.y, 6, 0, 6.3); ctx.stroke(); ctx.fillStyle = '#86c9ff'; ctx.beginPath(); ctx.arc(p.x, p.y, 2.5, 0, 6.3); ctx.fill(); } }
++      if (S.sel && !opts.pick) { const p = toScr(S.sel.lon, S.sel.lat); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(p.x, p.y, 9, 0, 6.3); ctx.moveTo(p.x - 14, p.y); ctx.lineTo(p.x - 5, p.y); ctx.moveTo(p.x + 5, p.y); ctx.lineTo(p.x + 14, p.y); ctx.moveTo(p.x, p.y - 14); ctx.lineTo(p.x, p.y - 5); ctx.moveTo(p.x, p.y + 5); ctx.lineTo(p.x, p.y + 14); ctx.stroke(); }
++      if (opts.pick) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(W / 2, Hh / 2, 12, 0, 6.3); ctx.moveTo(W / 2 - 22, Hh / 2); ctx.lineTo(W / 2 - 6, Hh / 2); ctx.moveTo(W / 2 + 6, Hh / 2); ctx.lineTo(W / 2 + 22, Hh / 2); ctx.moveTo(W / 2, Hh / 2 - 22); ctx.lineTo(W / 2, Hh / 2 - 6); ctx.moveTo(W / 2, Hh / 2 + 6); ctx.lineTo(W / 2, Hh / 2 + 22); ctx.stroke(); if (opts.onMove) opts.onMove(S.lat, S.lng); }
++      if (!baseOk && baseFail > 3) { ctx.fillStyle = 'rgba(2,3,10,.8)'; ctx.fillRect(16, Hh - 92, W - 32, 34); ctx.fillStyle = '#ffd28a'; ctx.textAlign = 'center'; ctx.fillText(G.x('Sin conexión: solo se ve la capa Bortle.', 'Offline: only the Bortle layer is shown.'), W / 2, Hh - 75); ctx.textAlign = 'left'; }
++    }
+ 
+-  function nearest(lat, lon) { let b = null; CITIES.forEach(c => { const d = km(lon, lat, c[1], c[2]); if (!b || d < b.d) b = { d, n: c[0] }; }); return b; }
+-  function pick(sx, sy) {
+-    const g = toGeo(sx, sy); const lat = g.lat, lon = g.lng;
+-    if (lat < BBOX.s || lat > BBOX.n || lon < BBOX.w || lon > BBOX.e) return;
+-    S.sel = { lat, lon }; S.dirty = true;
+-    // ¿toca un lugar guardado?
+-    const near = [SPECIAL].concat(S.spots).find(s => { const p = toScr(s.lon, s.lat); return Math.hypot(p.x - sx, p.y - sy) < 18; });
+-    const n = nearest(lat, lon);
+-    const title = near ? near.name : G.x('Punto del mapa', 'Map point');
+-    sheet.replaceChildren(...[
+-      h('div', { class: 'lz-row' }, h('b', null, title), h('button', { class: 'icon-btn', onclick: () => { S.sel = null; sheet.classList.remove('open'); S.dirty = true; } }, '✕')),
+-      near && near.note ? h('div', { class: 'small', style: 'color:#6be3a0' }, '★ ' + near.note) : null,
+-      h('div', { class: 'muted small' }, `${(near || { lat }).lat.toFixed(4)}°, ${(near || { lon }).lon.toFixed(4)}°`),
+-      h('div', { class: 'small' }, G.x(`Núcleo más cercano: ${n.n} (a ${G.fmtNum(n.d, 0)} km). Cuanto más lejos de las ciudades y más oscura se vea la zona en el mapa, mejor cielo.`, `Nearest main town: ${n.n} (${G.fmtNum(n.d, 0)} km away). The farther from towns and the darker the area looks on the map, the better the sky.`)),
+-      h('div', { class: 'row-btns' },
+-        (near && near.id !== 'montsec') ? h('button', { class: 'btn small', onclick: () => delSpot(near) }, G.x('Quitar lugar', 'Remove place')) : near ? '' : h('button', { class: 'btn small primary', onclick: () => saveSpot(lat, lon) }, '★ ' + G.x('Guardar lugar', 'Save place')),
+-        h('button', { class: 'btn small', onclick: () => { const a = (near || { lat }).lat, o = (near || { lon }).lon; location.href = `geo:${a},${o}?q=${a},${o}`; } }, G.x('Abrir en mapas', 'Open in maps')))].filter(Boolean));
+-    sheet.classList.add('open');
+-  }
++    function resize() { const r = root.getBoundingClientRect(); if (!r.width) return; const d = Math.min(2, window.devicePixelRatio || 1); W = r.width; Hh = r.height; cv.width = W * d; cv.height = Hh * d; cv.style.width = W + 'px'; cv.style.height = Hh + 'px'; ctx.setTransform(d, 0, 0, d, 0, 0); S.dirty = true; }
+ 
+-  const saveSpots = () => G.kv.set('spots', S.spots);
+-  function saveSpot(lat, lon) {
+-    const name = h('input', { type: 'text', placeholder: G.x('Nombre del lugar', 'Place name') }), note = h('textarea', { rows: 3, placeholder: G.x('Notas (acceso, horizonte, cielo…)', 'Notes (access, horizon, sky…)') });
+-    const m = G.modal({ title: G.x('Guardar lugar', 'Save place'), body: h('div', { class: 'form' }, h('label', null, G.x('Nombre', 'Name'), name), h('label', null, G.x('Notas', 'Notes'), note)),
+-      actions: [h('button', { class: 'btn ghost', onclick: () => m.close() }, G.x('Cancelar', 'Cancel')), h('button', { class: 'btn primary', onclick: () => {
+-        const nm = name.value.trim() || G.x('Mi lugar', 'My place'); S.spots.push({ id: 's' + Date.now(), name: nm, lat, lon, note: note.value.trim() }); saveSpots(); S.sel = null; sheet.classList.remove('open'); S.dirty = true; m.close(); G.toast(G.x('Lugar guardado', 'Place saved')); } }, G.x('Guardar', 'Save'))] });
+-  }
+-  function delSpot(s) { S.spots = S.spots.filter(x => x.id !== s.id); saveSpots(); S.sel = null; sheet.classList.remove('open'); S.dirty = true; G.toast(G.x('Lugar eliminado', 'Place removed')); }
+-  function listSpots() {
+-    const all = [SPECIAL].concat(S.spots);
+-    const m = G.modal({ title: G.x('Lugares de observación', 'Observing places'), body: h('div', { class: 'form' }, all.map(s => h('button', { class: 'wx-night', onclick: () => { m.close(); S.lng = s.lon; S.lat = s.lat; S.zoom = Math.max(S.zoom, 9); clamp(); pick(W / 2, Hh / 2); } },
+-      h('span', { class: 'wx-day', style: 'text-transform:none' }, (s.id === 'montsec' ? '★ ' : '') + s.name, s.note ? h('div', { class: 'muted small' }, s.note) : null)))), actions: [h('button', { class: 'btn ghost', onclick: () => m.close() }, G.x('Cerrar', 'Close'))] });
+-  }
++    // ---- información de un punto ----
++    function info(lat, lon) {
++      const a = analyse(lat, lon), b = BDESC[a.bortle - 1], pill = h('span', { class: 'lz-b b' + a.bortle }, 'B' + a.bortle);
++      return h('div', { class: 'lz-info' },
++        h('div', { class: 'lz-binfo' }, pill, h('div', null, h('b', null, G.x('Bortle ', 'Bortle ') + a.bortle + ' · ' + G.x(b[0], b[1])), h('div', { class: 'muted small' }, G.x('Brillo del cielo ≈ ', 'Sky brightness ≈ ') + G.fmtNum(a.sqm, 1) + ' mag/arcsec²'))),
++        h('div', { class: 'small' }, G.x(b[2], b[3])),
++        h('div', { class: 'small muted' }, G.x(`Núcleo más cercano: ${a.near.t.n} (${G.fmtNum(a.near.d, 1)} km, ${G.fmtNum(a.near.t.pop / 1000, 0)} mil hab.).`, `Nearest town: ${a.near.t.n} (${G.fmtNum(a.near.d, 1)} km, ${G.fmtNum(a.near.t.pop / 1000, 0)}k people).`)),
++        h('div', { class: 'small muted' }, G.x('Quién más ilumina: ', 'Main light sources: ') + a.top.map(x => `${x.n} ${x.pct}%`).join(' · ')),
++        h('div', { class: 'small muted' }, `${lat.toFixed(4)}°, ${lon.toFixed(4)}°`));
++    }
++    function pick(sx, sy) {
++      // ¿foto?
++      const mk = markers.find(m => Math.hypot(m.x - sx, m.y - sy) < 16);
++      if (mk) return showPhotos(mk.list);
++      const g = toGeo(sx, sy), lat = g.lat, lon = g.lng; if (lat < BBOX.s || lat > BBOX.n || lon < BBOX.w || lon > BBOX.e) return;
++      const near = [SPECIAL].concat(S.spots).find(s => { const p = toScr(s.lon, s.lat); return Math.hypot(p.x - sx, p.y - sy) < 18; });
++      const la = near ? near.lat : lat, lo = near ? near.lon : lon; S.sel = { lat: la, lon: lo }; S.dirty = true;
++      sheet.replaceChildren(...[
++        h('div', { class: 'lz-row' }, h('b', null, near ? near.name : G.x('Punto del mapa', 'Map point')), h('button', { class: 'icon-btn', onclick: closeSheet }, '✕')),
++        near && near.note ? h('div', { class: 'small', style: 'color:#6be3a0' }, '★ ' + near.note) : null,
++        info(la, lo),
++        h('div', { class: 'row-btns' },
++          (near && near.id !== 'montsec') ? h('button', { class: 'btn small', onclick: () => delSpot(near) }, G.x('Quitar lugar', 'Remove place')) : near ? '' : h('button', { class: 'btn small primary', onclick: () => saveSpot(lat, lon) }, '★ ' + G.x('Guardar lugar', 'Save place')),
++          h('button', { class: 'btn small', onclick: () => { location.href = `geo:${la},${lo}?q=${la},${lo}`; } }, G.x('Abrir en mapas', 'Open in maps')))].filter(Boolean));
++      sheet.classList.add('open');
++    }
++    function closeSheet() { S.sel = null; sheet.classList.remove('open'); S.dirty = true; }
++    async function showPhotos(list) {
++      sheet.replaceChildren(h('div', { class: 'lz-row' }, h('b', null, '📷 ' + G.x(list.length + (list.length > 1 ? ' fotos aquí' : ' foto'), list.length + (list.length > 1 ? ' photos here' : ' photo'))), h('button', { class: 'icon-btn', onclick: closeSheet }, '✕')));
++      const row = h('div', { class: 'lz-thumbs' }); sheet.append(row); sheet.classList.add('open');
++      list.slice(0, 12).forEach(ph => { const img = h('img', { alt: '' }); G.photos.dataURL(ph, 'thumb').then(u => { if (u) img.src = u; }).catch(() => { });
++        row.append(h('button', { class: 'lz-thumb', onclick: () => G.photoViewer && G.photoViewer(ph, {}, () => loadPhotos()) }, img, h('small', null, G.fmtDate(ph.date)), ph.place ? h('small', { class: 'muted' }, ph.place) : null)); });
++    }
++    async function loadPhotos() { try { S.photos = (await G.photos.all()).filter(p => p.lat != null && p.lon != null && !isNaN(p.lat) && !isNaN(p.lon)); } catch (e) { S.photos = []; } if (poiBadge) poiBadge.textContent = String(S.photos.length); S.dirty = true; }
++    const saveSpots = () => G.kv.set('spots', S.spots);
++    function saveSpot(lat, lon) {
++      const name = h('input', { type: 'text', placeholder: G.x('Nombre del lugar', 'Place name') }), note = h('textarea', { rows: 3, placeholder: G.x('Notas (acceso, horizonte, cielo…)', 'Notes (access, horizon, sky…)') });
++      const m = G.modal({ title: G.x('Guardar lugar', 'Save place'), body: h('div', { class: 'form' }, h('label', null, G.x('Nombre', 'Name'), name), h('label', null, G.x('Notas', 'Notes'), note)),
++        actions: [h('button', { class: 'btn ghost', onclick: () => m.close() }, G.x('Cancelar', 'Cancel')), h('button', { class: 'btn primary', onclick: () => {
++          const a = analyse(lat, lon); const extra = G.x(`Bortle ${a.bortle} (estimado)`, `Bortle ${a.bortle} (estimated)`);
++          S.spots.push({ id: 's' + Date.now(), name: name.value.trim() || G.x('Mi lugar', 'My place'), lat, lon, note: [extra, note.value.trim()].filter(Boolean).join(' · ') }); saveSpots(); closeSheet(); m.close(); G.toast(G.x('Lugar guardado', 'Place saved')); } }, G.x('Guardar', 'Save'))] });
++    }
++    function delSpot(s) { S.spots = S.spots.filter(x => x.id !== s.id); saveSpots(); closeSheet(); G.toast(G.x('Lugar eliminado', 'Place removed')); }
++    function listSpots() {
++      const all = [SPECIAL].concat(S.spots);
++      const m = G.modal({ title: G.x('Lugares de observación', 'Observing places'), body: h('div', { class: 'form' }, all.map(s => h('button', { class: 'wx-night', onclick: () => { m.close(); S.lng = s.lon; S.lat = s.lat; S.zoom = Math.max(S.zoom, 10); clamp(); pick(W / 2, Hh / 2); } },
++        h('span', { class: 'wx-day', style: 'text-transform:none' }, (s.id === 'montsec' ? '★ ' : '') + s.name, s.note ? h('div', { class: 'muted small' }, s.note) : null)))), actions: [h('button', { class: 'btn ghost', onclick: () => m.close() }, G.x('Cerrar', 'Close'))] });
++    }
+ 
+-  function bind() {
+-    const ptr = new Map(); let moved = 0, startT = 0, pinch = 0;
+-    cv.addEventListener('pointerdown', e => { cv.setPointerCapture(e.pointerId); ptr.set(e.pointerId, { x: e.clientX, y: e.clientY }); moved = 0; startT = Date.now(); if (ptr.size === 2) { const [a, b] = [...ptr.values()]; pinch = Math.hypot(a.x - b.x, a.y - b.y); } });
+-    cv.addEventListener('pointermove', e => {
+-      const p = ptr.get(e.pointerId); if (!p) return;
+-      if (ptr.size === 2) { ptr.set(e.pointerId, { x: e.clientX, y: e.clientY }); const [a, b] = [...ptr.values()]; const d = Math.hypot(a.x - b.x, a.y - b.y); if (pinch) { S.zoom += Math.log2(d / pinch); clamp(); S.dirty = true; } pinch = d; moved = 99; return; }
+-      const dx = e.clientX - p.x, dy = e.clientY - p.y; moved += Math.abs(dx) + Math.abs(dy); p.x = e.clientX; p.y = e.clientY;
+-      S.lng = ilng(mx(S.lng, S.zoom) - dx, S.zoom); S.lat = ilat(my(S.lat, S.zoom) - dy, S.zoom); clamp(); S.dirty = true;
+-    });
+-    const up = e => { const had = ptr.delete(e.pointerId); pinch = 0; if (had && ptr.size === 0 && moved < 8 && Date.now() - startT < 500) { const r = cv.getBoundingClientRect(); pick(e.clientX - r.left, e.clientY - r.top); } };
+-    cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', e => { ptr.delete(e.pointerId); pinch = 0; });
+-    cv.addEventListener('wheel', e => { e.preventDefault(); S.zoom += e.deltaY < 0 ? 0.4 : -0.4; clamp(); S.dirty = true; }, { passive: false });
++    function bind() {
++      const ptr = new Map(); let moved = 0, startT = 0, pinch = 0;
++      cv.addEventListener('pointerdown', e => { cv.setPointerCapture(e.pointerId); ptr.set(e.pointerId, { x: e.clientX, y: e.clientY }); moved = 0; startT = Date.now(); if (ptr.size === 2) { const [a, b] = [...ptr.values()]; pinch = Math.hypot(a.x - b.x, a.y - b.y); } });
++      cv.addEventListener('pointermove', e => {
++        const p = ptr.get(e.pointerId); if (!p) return;
++        if (ptr.size === 2) { ptr.set(e.pointerId, { x: e.clientX, y: e.clientY }); const [a, b] = [...ptr.values()]; const d = Math.hypot(a.x - b.x, a.y - b.y); if (pinch) { S.zoom += Math.log2(d / pinch); clamp(); S.dirty = true; } pinch = d; moved = 99; return; }
++        const dx = e.clientX - p.x, dy = e.clientY - p.y; moved += Math.abs(dx) + Math.abs(dy); p.x = e.clientX; p.y = e.clientY;
++        S.lng = ilng(mx(S.lng, S.zoom) - dx, S.zoom); S.lat = ilat(my(S.lat, S.zoom) - dy, S.zoom); clamp(); S.dirty = true;
++      });
++      cv.addEventListener('pointerup', e => { const had = ptr.delete(e.pointerId); pinch = 0; if (had && ptr.size === 0 && moved < 8 && Date.now() - startT < 500 && !opts.pick) { const r = cv.getBoundingClientRect(); pick(e.clientX - r.left, e.clientY - r.top); } });
++      cv.addEventListener('pointercancel', e => { ptr.delete(e.pointerId); pinch = 0; });
++      cv.addEventListener('wheel', e => { e.preventDefault(); S.zoom += e.deltaY < 0 ? 0.4 : -0.4; clamp(); S.dirty = true; }, { passive: false });
++    }
++
++    function build() {
++      cv = h('canvas', { class: 'lz-canvas' }); ctx = cv.getContext('2d'); root.append(cv);
++      const zoom = d => () => { S.zoom += d; clamp(); S.dirty = true; };
++      const tools = h('div', { class: 'lz-tools' }, h('button', { class: 'chip-btn', onclick: zoom(0.8) }, '＋'), h('button', { class: 'chip-btn', onclick: zoom(-0.8) }, '－'),
++        h('button', { class: 'chip-btn', onclick: () => { S.lng = G.loc.lon; S.lat = G.loc.lat; S.zoom = Math.max(S.zoom, 10); clamp(); S.dirty = true; } }, '⌖'));
++      if (!opts.pick) {
++        tools.append(h('button', { class: 'chip-btn', onclick: listSpots }, '★'));
++        sheet = h('div', { class: 'lz-sheet' });
++        const bt = h('button', { class: 'chip-btn on', onclick: () => { S.bortle = !S.bortle; bt.classList.toggle('on', S.bortle); S.dirty = true; } }, G.x('Bortle', 'Bortle'));
++        poiBadge = h('em', null, '0');
++        const pt = h('button', { class: 'chip-btn', onclick: async () => { S.showPhotos = !S.showPhotos; pt.classList.toggle('on', S.showPhotos); if (S.showPhotos) { await loadPhotos(); if (!S.photos.length) G.toast(G.x('Aún no hay fotos con ubicación. Añádela al subir una foto.', 'No photos with a location yet. Add one when uploading a photo.'), 4000); } S.dirty = true; } }, '📷 ', G.x('Mis fotos', 'My photos'), ' ', poiBadge);
++        const op = h('input', { type: 'range', min: 10, max: 100, value: Math.round(S.opacity * 100), 'aria-label': G.x('Opacidad', 'Opacity'), oninput: e => { S.opacity = e.target.value / 100; S.dirty = true; } });
++        root.append(h('div', { class: 'lz-top' }, h('div', { class: 'lz-chips' }, bt, pt), h('label', { class: 'lz-op' }, G.x('Capa', 'Layer'), op)));
++        root.append(sheet);
++      }
++      // leyenda Bortle
++      const leg = h('div', { class: 'lz-legend2' }, h('div', { class: 'lz-lbar' }, [1, 2, 3, 4, 5, 6, 7, 8, 9].map(i => h('i', { class: 'b' + i }, String(i)))), h('div', { class: 'lz-lt' }, h('span', null, G.x('Oscuro', 'Dark')), h('span', null, G.x('Escala Bortle (estimada)', 'Bortle scale (estimated)')), h('span', null, G.x('Luminoso', 'Bright'))));
++      root.append(tools, leg, h('div', { class: 'lz-note' }, '© OpenStreetMap · © CARTO'));
++      bind();
++    }
++    build(); buildGrid();
++    (function frame() { if (!cv.isConnected) return; requestAnimationFrame(frame); if (active && S.dirty && W) draw(); })();
++    return {
++      state: S, centre: () => ({ lat: S.lat, lon: S.lng }), resize, info,
++      setSpots(a) { S.spots = a; S.dirty = true; },
++      show(on) { active = on; if (on) { if (!baseOk) { tiles.forEach((t, k) => { if (t.bad) tiles.delete(k); }); baseFail = 0; } if (S.showPhotos) loadPhotos(); setTimeout(() => { resize(); clamp(); S.dirty = true; }, 30); } }
++    };
+   }
+ 
++  let main;
+   G.luz = {
+     async init() {
+-      root = G.$('#view-luz');
+-      cv = h('canvas', { id: 'lz-canvas' }); ctx = cv.getContext('2d');
+-      sheet = h('div', { class: 'lz-sheet' });
+-      const zoom = d => () => { S.zoom += d; clamp(); S.dirty = true; };
+-      const legend = h('div', { class: 'lz-legend' }, h('span', null, G.x('Oscuro', 'Dark')), h('i'), h('span', null, G.x('Más luz', 'Brighter')));
+-      const tools = h('div', { class: 'lz-tools' },
+-        h('button', { class: 'chip-btn', onclick: zoom(0.7) }, '＋'), h('button', { class: 'chip-btn', onclick: zoom(-0.7) }, '－'),
+-        h('button', { class: 'chip-btn', onclick: () => { S.lng = G.loc.lon; S.lat = G.loc.lat; S.zoom = Math.max(S.zoom, 8.5); clamp(); S.dirty = true; } }, '⌖'),
+-        h('button', { class: 'chip-btn', onclick: listSpots }, '★'));
+-      const note = h('div', { class: 'lz-note' }, G.x('Catalunya · brillo nocturno (NASA VIIRS). Necesita internet.', 'Catalonia · night-time brightness (NASA VIIRS). Needs internet.'));
+-      root.append(cv, legend, tools, note, sheet);
+-      try { S.spots = (await G.kv.get('spots')) || []; } catch (e) { }
+-      bind(); addEventListener('resize', resize);
+-      (function frame() { requestAnimationFrame(frame); if (active && S.dirty && W) draw(); })();
++      const root = G.$('#view-luz'); main = createMap(root);
++      try { main.setSpots((await G.kv.get('spots')) || []); } catch (e) { }
++      addEventListener('resize', () => main.resize());
+     },
+-    show(on) { active = on; if (on) { if (!S.oks) { S.layer = 0; S.fails = 0; S.tiles.clear(); } setTimeout(() => { resize(); clamp(); S.dirty = true; }, 30); } },
+-    state: S
++    show(on) { if (main) main.show(on); },
++    get state() { return main && main.state; },
++    analyse
++  };
++
++  // Selector de punto en el mapa (para la ubicación de una foto). Devuelve {lat, lon} o null.
++  G.luzPick = function (start) {
++    return new Promise(resolve => {
++      const box = h('div', { class: 'lz-pickbox' }); const readout = h('div', { class: 'lz-readout small' });
++      let mp, done = false;
++      const m = G.modal({ title: G.x('Elige el punto en el mapa', 'Choose the point on the map'), full: true, onClose: () => { if (!done) resolve(null); },
++        body: h('div', null, h('p', { class: 'muted small' }, G.x('Mueve el mapa hasta que la mira quede sobre el lugar donde hiciste la foto.', 'Move the map until the crosshair is over where you took the photo.')), box, readout),
++        actions: [h('button', { class: 'btn ghost', onclick: () => m.close() }, G.x('Cancelar', 'Cancel')), h('button', { class: 'btn primary', onclick: () => { done = true; const c = mp.centre(); m.close(); resolve({ lat: c.lat, lon: c.lon }); } }, G.x('Usar este punto', 'Use this point'))] });
++      const s0 = start && start.lat != null && !isNaN(start.lat) ? start : { lat: G.loc.lat, lon: G.loc.lon };
++      let last = 0;
++      mp = createMap(box, { pick: true, start: s0, onMove: (la, lo) => { const n = Date.now(); if (n - last < 250) return; last = n; const a = analyse(la, lo); readout.textContent = `${la.toFixed(5)}°, ${lo.toFixed(5)}° · Bortle ${a.bortle} (≈${G.fmtNum(a.sqm, 1)})`; } });
++      setTimeout(() => { mp.show(true); mp.resize(); }, 120);
++    });
+   };
+ })(window.G);
+diff --git a/app/src/main/assets/www/js/photoui.js b/app/src/main/assets/www/js/photoui.js
+index bd14cdc..bad2ed8 100644
+--- a/app/src/main/assets/www/js/photoui.js
++++ b/app/src/main/assets/www/js/photoui.js
+@@ -15,6 +15,7 @@ window.G = window.G || {};
+     G.photos.dataURL(rec, which).then(u => { if (u) img.src = u; else img.classList.add('broken'); }).catch(() => img.classList.add('broken'));
+   }
+   G.setPhotoImg = setImg;
++  G.photoViewer = (rec, opts, refresh) => viewer(rec, opts || {}, refresh || (() => { }));
+ 
+   // Formulario de datos de una foto (nueva o existente). Devuelve una promesa: true si se guardó.
+   function photoForm(rec, onSave, title) {
+@@ -30,13 +31,17 @@ window.G = window.G || {};
+         try { const p = await G.getPosition(); lat.value = p.lat.toFixed(5); lon.value = p.lon.toFixed(5); } catch (e) { G.toast('No se pudo obtener la ubicación'); }
+         gps.textContent = G.t('Usar mi ubicación actual');
+       } }, 'Usar mi ubicación actual');
++      const pickMap = h('button', { class: 'btn small', type: 'button', onclick: async () => {
++        const r = await G.luzPick({ lat: parseFloat(lat.value), lon: parseFloat(lon.value) });
++        if (r) { lat.value = r.lat.toFixed(5); lon.value = r.lon.toFixed(5); }
++      } }, '📍 ' + G.x('Elegir en el mapa', 'Choose on the map'));
+       const img = h('img', { class: 'form-photo' }); setImg(img, rec, 'thumb');
+       m = G.modal({
+         title: title || 'Datos de la foto',
+         onClose: () => { if (!saving) resolve(false); },
+         body: h('div', { class: 'form' }, img,
+           h('label', null, 'Fecha y hora de la foto', date),
+-          h('label', null, 'Ubicación', h('div', { class: 'row2' }, lat, lon), gps),
++          h('label', null, 'Ubicación', h('div', { class: 'row2' }, lat, lon), h('div', { class: 'row-btns' }, gps, pickMap)),
+           h('label', null, 'Lugar', place),
+           h('label', null, 'Notas', note)),
+         actions: [h('button', { class: 'btn ghost', onclick: () => m.close() }, 'Cancelar'),
