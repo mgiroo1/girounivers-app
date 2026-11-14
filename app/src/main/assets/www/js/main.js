@@ -60,6 +60,7 @@ window.G = window.G || {};
         h('h4', null, 'Idioma'), langSel,
         h('h4', null, 'Mi ubicación de observación'), h('div', { class: 'row2' }, h('label', null, 'Latitud', lat), h('label', null, 'Longitud', lon)), gps,
         h('p', { class: 'muted small' }, 'Se usa para calcular altura y azimut, salidas y puestas. Por defecto se intenta usar el GPS.'),
+        h('h4', null, 'Notificaciones'), G.notify.panel(),
         h('h4', null, 'Copia de seguridad'),
         h('p', { class: 'muted small' }, 'Fichas, retos, eventos y todas tus fotos se guardan solo en este móvil. Exporta una copia de vez en cuando.'),
         h('div', { class: 'row-btns' }, h('button', { class: 'btn small', onclick: () => { G.toast('Preparando copia…'); G.backup.export(); } }, '⬇ Exportar copia'), h('button', { class: 'btn small', onclick: () => file.click() }, '⬆ Importar copia'), file),
@@ -89,11 +90,14 @@ window.G = window.G || {};
     G.challenges = ch; G.kv.set('challenges', ch);
     G.customEvents = (await G.kv.get('events')) || [];
 
+    await G.notify.init();
     await G.sky.init(); G.solar.init(); G.catalog.init(); G.challengesUI.init(); G.agenda.init(); G.weather.init(); G.luz.init();
     G.$$('#nav button, .icon-btn.hd').forEach(b => { b.addEventListener('click', () => G.showTab(b.dataset.tab)); const lab = G.t(TABS[b.dataset.tab].title); b.setAttribute('aria-label', lab); b.setAttribute('title', lab); });
     G.$('#btn-settings').addEventListener('click', settings);
     const first = (await G.kv.get('tab')) || 'cielo';
     G.showTab(TABS[first] ? first : 'cielo');
+    booted = true; if (pendingTab && TABS[pendingTab]) G.showTab(pendingTab);
+    setTimeout(() => G.notify.sync(), 6000);
     G.$('#splash').classList.add('hide'); setTimeout(() => G.$('#splash').remove(), 700);
 
     // ubicación automática (silenciosa)
@@ -105,6 +109,7 @@ window.G = window.G || {};
     }
   }
   // botón atrás de Android: devuelve true si la web lo ha gestionado
-  window.GU = { back: () => { if (G.back()) return true; if (current !== 'cielo') { G.showTab('cielo'); return true; } return false; } };
+  let booted = false, pendingTab = null;
+  window.GU = { openTab: t => { if (booted && TABS[t]) G.showTab(t); else pendingTab = t; }, back: () => { if (G.back()) return true; if (current !== 'cielo') { G.showTab('cielo'); return true; } return false; } };
   window.addEventListener('DOMContentLoaded', () => boot().catch(e => { console.error(e); document.body.append(h('pre', { style: 'color:#f88;padding:20px;position:fixed;z-index:99;background:#000;inset:0;overflow:auto' }, String(e && e.stack || e))); }));
 })(window.G);

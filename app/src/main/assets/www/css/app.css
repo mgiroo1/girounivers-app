@@ -255,3 +255,19 @@ select { appearance: none; }
 .lz-sheet { bottom: 68px; max-height: 58%; overflow-y: auto; }
 .lz-lt span, .lz-note { background: rgba(4, 5, 12, .72); padding: 1px 6px; border-radius: 6px; text-shadow: none; }
 .lz-note { width: fit-content; }
+
+.lz-sheet { bottom: 34px; }
+
+.crop-wrap { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.crop-cv { touch-action: none; border-radius: 10px; border: 1px solid var(--line); background: #000; cursor: grab; max-width: 100%; }
+.crop-zoom { display: flex; align-items: center; gap: 10px; width: 100%; max-width: 360px; }
+.crop-zoom input { flex: 1; accent-color: #ffd28a; }
+.crop-chips { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+
+.chk { display: flex; align-items: center; gap: 8px; font-size: 14px; padding: 4px 0; cursor: pointer; }
+.chk.big { font-size: 15px; font-weight: 600; }
+.chk input { width: 18px; height: 18px; accent-color: #ffd28a; flex: none; }
+.notif-panel { gap: 6px; }
+.form label.chk { display: flex; flex-direction: row; align-items: center; gap: 10px; font-size: 14px; color: var(--text); letter-spacing: 0; padding: 4px 0; }
+.form label.chk.big { font-size: 15px; font-weight: 600; }
+.form label.chk input[type=checkbox] { width: 20px; height: 20px; padding: 0; flex: none; }

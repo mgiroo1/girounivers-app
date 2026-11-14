@@ -36,7 +36,7 @@ public class MainActivity extends Activity {
     private ValueCallback<Uri[]> chooser;
     private GeolocationPermissions.Callback geoCb;
     private String geoOrigin;
-    private static final int REQ_FILE = 1, REQ_LOC = 2, REQ_PICK = 3;
+    private static final int REQ_FILE = 1, REQ_LOC = 2, REQ_PICK = 3, REQ_NOTIF = 4;
 
     @Override protected void onCreate(Bundle b) {
         super.onCreate(b);
@@ -53,7 +53,9 @@ public class MainActivity extends Activity {
         s.setMediaPlaybackRequiresUserGesture(false);
         s.setUserAgentString(s.getUserAgentString() + " GirouniversApp");
         web.addJavascriptInterface(new FileBridge(), "GuFile");
+        web.addJavascriptInterface(new NotifyBridge(), "GuNotify");
         web.setWebViewClient(new WebViewClient() {
+            @Override public void onPageFinished(WebView v, String url) { openTabFromIntent(getIntent()); }
             @Override public boolean shouldOverrideUrlLoading(WebView v, WebResourceRequest r) {
                 Uri u = r.getUrl();
                 if ("file".equals(u.getScheme()) || "appassets".equals(u.getScheme())) return false;
@@ -79,7 +81,25 @@ public class MainActivity extends Activity {
         web.loadUrl("file:///android_asset/www/index.html");
     }
 
+    /** Al tocar una notificación se abre la app en la pestaña indicada (p. ej. la agenda). */
+    private void openTabFromIntent(Intent i) {
+        if (i == null) return;
+        String t = i.getStringExtra("tab");
+        if (t != null && t.matches("[a-z]+")) web.evaluateJavascript("window.GU&&GU.openTab&&GU.openTab('" + t + "')", null);
+    }
+
+    @Override protected void onNewIntent(Intent i) {
+        super.onNewIntent(i);
+        setIntent(i);
+        openTabFromIntent(i);
+    }
+
     @Override public void onRequestPermissionsResult(int code, String[] perms, int[] res) {
+        if (code == REQ_NOTIF) {
+            boolean ok = res.length > 0 && res[0] == PackageManager.PERMISSION_GRANTED;
+            web.evaluateJavascript("window.GUnotif&&GUnotif.perm(" + ok + ")", null);
+            return;
+        }
         if (code == REQ_LOC && geoCb != null) {
             boolean ok = res.length > 0 && res[0] == PackageManager.PERMISSION_GRANTED;
             geoCb.invoke(geoOrigin, ok, false); geoCb = null;
@@ -143,6 +163,21 @@ public class MainActivity extends Activity {
 
     @Override public void onBackPressed() {
         web.evaluateJavascript("window.GU && GU.back()", v -> { if (!"true".equals(v)) runOnUiThread(() -> MainActivity.super.onBackPressed()); });
+    }
+
+    /** Puente de notificaciones de la agenda. */
+    class NotifyBridge {
+        @JavascriptInterface public boolean canNotify() {
+            if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission("android.permission.POST_NOTIFICATIONS") != PackageManager.PERMISSION_GRANTED) return false;
+            return ((android.app.NotificationManager) getSystemService(NOTIFICATION_SERVICE)).areNotificationsEnabled();
+        }
+        @JavascriptInterface public void requestPermission() {
+            if (Build.VERSION.SDK_INT >= 33) runOnUiThread(() -> requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"}, REQ_NOTIF));
+            else web.post(() -> web.evaluateJavascript("window.GUnotif&&GUnotif.perm(" + canNotify() + ")", null));
+        }
+        @JavascriptInterface public void schedule(String json) { Notifier.schedule(getApplicationContext(), json); }
+        @JavascriptInterface public void cancelAll() { Notifier.cancelAll(getApplicationContext()); }
+        @JavascriptInterface public void test(String title, String text) { Notifier.show(getApplicationContext(), 1, title, text); }
     }
 
     /** Puente para guardar archivos (copias de seguridad, .ics) en Descargas. */

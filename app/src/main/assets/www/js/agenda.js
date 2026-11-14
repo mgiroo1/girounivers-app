@@ -8,7 +8,7 @@ window.G = window.G || {};
   if (G.lang === 'en') Object.keys(PN).forEach(k => { PN[k] = G.t(PN[k]); });
   const state = { f: 'todo', cache: null, cacheDay: '' };
   let list, chips;
-  const saveCustom = () => G.kv.set('events', G.customEvents);
+  const saveCustom = () => { G.kv.set('events', G.customEvents); if (G.notify) setTimeout(() => G.notify.sync(), 300); };
 
   function compute() {
     const day = new Date().toDateString();
@@ -261,6 +261,6 @@ window.G = window.G || {};
       root.append(h('div', { class: 'scroll' }, h('div', { class: 'catalog-top' }, chips, h('div', { class: 'muted small count' }, 'Lluvias de estrellas, fases lunares, oposiciones, conjunciones y posiciones relativas de los próximos 13 meses, calculadas en tu móvil.')), list), fab);
     },
     show() { setTimeout(render, 30); },
-    compute
+    compute, all
   };
 })(window.G);

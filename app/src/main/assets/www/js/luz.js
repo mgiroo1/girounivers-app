@@ -229,9 +229,7 @@ window.G = window.G || {};
         root.append(h('div', { class: 'lz-top' }, h('div', { class: 'lz-chips' }, bt, pt, bs), h('label', { class: 'lz-op' }, G.x('Capa', 'Layer'), op)));
         root.append(sheet);
       }
-      // leyenda Bortle
-      const leg = h('div', { class: 'lz-legend2' }, h('div', { class: 'lz-lbar' }, [1, 2, 3, 4, 5, 6, 7, 8, 9].map(i => h('i', { class: 'b' + i }, String(i)))), h('div', { class: 'lz-lt' }, h('span', null, G.x('Oscuro', 'Dark')), h('span', null, G.x('Escala Bortle (estimada)', 'Bortle scale (estimated)')), h('span', null, G.x('Luminoso', 'Bright'))));
-      root.append(tools, leg, attEl = h('div', { class: 'lz-note' }, BASES[baseKey].att));
+      root.append(tools, attEl = h('div', { class: 'lz-note' }, BASES[baseKey].att));
       bind();
     }
     build(); buildGrid();
