@@ -271,3 +271,6 @@ select { appearance: none; }
 .form label.chk { display: flex; flex-direction: row; align-items: center; gap: 10px; font-size: 14px; color: var(--text); letter-spacing: 0; padding: 4px 0; }
 .form label.chk.big { font-size: 15px; font-weight: 600; }
 .form label.chk input[type=checkbox] { width: 20px; height: 20px; padding: 0; flex: none; }
+
+.lz-spotrow { margin: 6px 0; }
+.lz-spotrow .chip-btn { padding: 7px 12px; }

@@ -238,6 +238,7 @@ window.G = window.G || {};
       refresh() { if (baseLbl) baseLbl.textContent = BASES[baseKey].name; if (attEl) attEl.textContent = BASES[baseKey].att; S.dirty = true; },
       state: S, centre: () => ({ lat: S.lat, lon: S.lng }), resize, info,
       setSpots(a) { S.spots = a; S.dirty = true; },
+      goTo(la, lo, z) { S.lat = la; S.lng = lo; S.zoom = Math.max(S.zoom, z || 12); clamp(); S.dirty = true; },
       show(on) { active = on; if (on) { if (!baseOk) { tiles.forEach((t, k) => { if (t.bad) tiles.delete(k); }); baseFail = 0; } if (S.showPhotos) loadPhotos(); setTimeout(() => { resize(); clamp(); S.dirty = true; }, 30); } }
     };
     maps.push(api); return api;
@@ -260,14 +261,21 @@ window.G = window.G || {};
   G.luzPick = function (start) {
     return new Promise(resolve => {
       const box = h('div', { class: 'lz-pickbox' }); const readout = h('div', { class: 'lz-readout small' });
-      let mp, done = false;
+      let mp, done = false, chosen = null;
+      const spotRow = h('div', { class: 'lz-chips lz-spotrow' });
+      const showRead = (la, lo) => { const a = analyse(la, lo); readout.textContent = `${la.toFixed(5)}°, ${lo.toFixed(5)}° · Bortle ${a.bortle} (≈${G.fmtNum(a.sqm, 1)})`; };
+      const fillSpots = async () => {
+        let sp = []; try { sp = (await G.kv.get('spots')) || []; } catch (e) { }
+        [SPECIAL].concat(sp).forEach(s => spotRow.append(h('button', { class: 'chip-btn', type: 'button', onclick: () => { chosen = s; mp.goTo(s.lat, s.lon, 12); showRead(s.lat, s.lon); } }, (s.id === 'montsec' ? '★ ' : '📍 ') + s.name)));
+      };
       const m = G.modal({ title: G.x('Elige el punto en el mapa', 'Choose the point on the map'), full: true, onClose: () => { if (!done) resolve(null); },
-        body: h('div', null, h('p', { class: 'muted small' }, G.x('Mueve el mapa hasta que la mira quede sobre el lugar donde hiciste la foto.', 'Move the map until the crosshair is over where you took the photo.')), box, readout),
-        actions: [h('button', { class: 'btn ghost', onclick: () => m.close() }, G.x('Cancelar', 'Cancel')), h('button', { class: 'btn primary', onclick: () => { done = true; const c = mp.centre(); m.close(); resolve({ lat: c.lat, lon: c.lon }); } }, G.x('Usar este punto', 'Use this point'))] });
+        body: h('div', null, h('p', { class: 'muted small' }, G.x('Elige uno de tus lugares de observación o mueve el mapa hasta que la mira quede sobre el lugar donde hiciste la foto.', 'Pick one of your observing places or move the map until the crosshair is over where you took the photo.')), spotRow, box, readout),
+        actions: [h('button', { class: 'btn ghost', onclick: () => m.close() }, G.x('Cancelar', 'Cancel')), h('button', { class: 'btn primary', onclick: () => { done = true; const c = mp.centre(); m.close(); const nm = chosen && Math.hypot((c.lat - chosen.lat) * 111000, (c.lon - chosen.lon) * 82000) < 60 ? chosen.name : null; resolve({ lat: c.lat, lon: c.lon, name: nm }); } }, G.x('Usar este punto', 'Use this point'))] });
       const s0 = start && start.lat != null && !isNaN(start.lat) ? start : { lat: G.loc.lat, lon: G.loc.lon };
       let last = 0;
       mp = createMap(box, { pick: true, start: s0, onMove: (la, lo) => { const n = Date.now(); if (n - last < 250) return; last = n; const a = analyse(la, lo); readout.textContent = `${la.toFixed(5)}°, ${lo.toFixed(5)}° · Bortle ${a.bortle} (≈${G.fmtNum(a.sqm, 1)})`; } });
       setTimeout(() => { mp.show(true); mp.resize(); }, 120);
+      fillSpots();
     });
   };
 })(window.G);

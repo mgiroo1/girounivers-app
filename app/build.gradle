@@ -6,11 +6,18 @@ android {
         applicationId 'com.girounivers.app'
         minSdk 24
         targetSdk 34
-        versionCode 3
-        versionName '1.1'
+        versionCode 4
+        versionName '1.2'
+    }
+    signingConfigs {
+        girounivers {
+            storeFile file("$rootDir/keystore/girounivers.jks")
+            storePassword 'girounivers'; keyAlias 'girounivers'; keyPassword 'girounivers'
+        }
     }
     buildTypes {
-        release { minifyEnabled false; signingConfig signingConfigs.debug }
+        debug { signingConfig signingConfigs.girounivers }
+        release { minifyEnabled false; signingConfig signingConfigs.girounivers }
     }
     compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
 }

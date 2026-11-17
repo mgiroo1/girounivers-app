@@ -99,7 +99,7 @@ window.G = window.G || {};
       } }, 'Usar mi ubicación actual');
       const pickMap = h('button', { class: 'btn small', type: 'button', onclick: async () => {
         const r = await G.luzPick({ lat: parseFloat(lat.value), lon: parseFloat(lon.value) });
-        if (r) { lat.value = r.lat.toFixed(5); lon.value = r.lon.toFixed(5); }
+        if (r) { lat.value = r.lat.toFixed(5); lon.value = r.lon.toFixed(5); if (r.name && !place.value.trim()) place.value = r.name; }
       } }, '📍 ' + G.x('Elegir en el mapa', 'Choose on the map'));
       const img = h('img', { class: 'form-photo' }); setImg(img, rec, 'thumb');
       const cropBtn = h('button', { class: 'btn small', type: 'button', onclick: async () => {
