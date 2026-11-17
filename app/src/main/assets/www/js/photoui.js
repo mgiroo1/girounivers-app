@@ -185,6 +185,7 @@ window.G = window.G || {};
       let list = [];
       try { list = await G.photos.list(owner); } catch (e) { console.error(e); G.toast(G.x('No se pudieron leer las fotos: ', 'Could not read the photos: ') + e.message, 5000); }
       const cover = opts.coverId ? opts.coverId() : null;
+      if (cover != null) { const ci = list.findIndex(p => p.id === cover); if (ci > 0) list.unshift(list.splice(ci, 1)[0]); }
       grid.replaceChildren(...list.map((p, i) => {
         const img = h('img', { alt: '' }); setImg(img, p, 'thumb');
         return h('button', { class: 'thumb', onclick: () => viewer(p, opts, refresh), 'aria-label': G.t('Foto') + ' ' + (i + 1) },

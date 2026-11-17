@@ -141,6 +141,7 @@ window.G = window.G || {};
 
   // ---- Copia de seguridad ----
   const dataURLToBlob = async u => (await fetch(u)).blob();
+  const kvGet = async k => { try { const v = await G.kv.get(k); return v === undefined ? null : v; } catch (e) { return null; } };
   G.backup = {
     async export() {
       const photos = await G.photos.all();
@@ -150,20 +151,27 @@ window.G = window.G || {};
         o.blob = await G.photos.dataURL(p, 'full'); o.thumb = await G.photos.dataURL(p, 'thumb');
         delete o.img; delete o.th; ph.push(o);
       }
-      const data = { app: 'girounivers', v: 2, date: new Date().toISOString(), kv: { entries: G.entries, challenges: G.challenges, events: G.customEvents, loc: G.loc }, photos: ph };
+      const data = { app: 'girounivers', v: 2, date: new Date().toISOString(), kv: { entries: G.entries, challenges: G.challenges, events: G.customEvents, loc: G.loc, spots: await kvGet('spots'), notif: await kvGet('notif'), luzbase: await kvGet('luzbase') }, photos: ph };
       const name = 'girounivers-copia-' + new Date().toISOString().slice(0, 10) + '.json';
       await G.saveFile(name, 'application/json', new Blob([JSON.stringify(data)], { type: 'application/json' }));
     },
     async import(file) {
       const data = JSON.parse(await file.text());
       if (data.app !== 'girounivers') throw new Error('Archivo no válido');
-      for (const k of ['entries', 'challenges', 'events', 'loc']) if (data.kv[k]) await G.kv.set(k, data.kv[k]);
+      for (const k of ['challenges', 'events', 'loc', 'spots', 'notif', 'luzbase']) if (data.kv[k] != null) await G.kv.set(k, data.kv[k]);
       await G.photos.clear();
+      const idMap = {};
       for (const p of data.photos || []) {
-        delete p.id;
+        const oldId = p.id; delete p.id;
         if (p.blob) p.blob = await dataURLToBlob(p.blob);
         if (p.thumb) p.thumb = await dataURLToBlob(p.thumb);
-        await G.photos.add(p);
+        const nid = await G.photos.add(p);
+        if (oldId != null) idMap[oldId] = nid;
+      }
+      // las portadas guardan el id de la foto, que cambia al importar: se reasigna
+      if (data.kv.entries) {
+        data.kv.entries.forEach(e => { if (e.cover != null) e.cover = idMap[e.cover] != null ? idMap[e.cover] : null; });
+        await G.kv.set('entries', data.kv.entries);
       }
     }
   };
