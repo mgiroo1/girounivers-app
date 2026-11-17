@@ -61,6 +61,7 @@ window.G = window.G || {};
         h('h4', null, 'Mi ubicación de observación'), h('div', { class: 'row2' }, h('label', null, 'Latitud', lat), h('label', null, 'Longitud', lon)), gps,
         h('p', { class: 'muted small' }, 'Se usa para calcular altura y azimut, salidas y puestas. Por defecto se intenta usar el GPS.'),
         h('h4', null, 'Notificaciones'), G.notify.panel(),
+        window.GuFile ? null : h('div', null, h('h4', null, G.x('Instalar', 'Install')), h('button', { class: 'btn small', onclick: () => G.iosInstall(false) }, '📲 ' + G.x('Cómo instalar en iPhone', 'How to install on iPhone'))),
         h('h4', null, 'Copia de seguridad'),
         h('p', { class: 'muted small' }, 'Fichas, retos, eventos y todas tus fotos se guardan solo en este móvil. Exporta una copia de vez en cuando.'),
         h('div', { class: 'row-btns' }, h('button', { class: 'btn small', onclick: () => { G.toast('Preparando copia…'); G.backup.export(); } }, '⬇ Exportar copia'), h('button', { class: 'btn small', onclick: () => file.click() }, '⬆ Importar copia'), file),
@@ -109,12 +110,26 @@ window.G = window.G || {};
       try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch (e) { }
       const ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
       const standalone = navigator.standalone === true || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
-      if (ios && !standalone) G.kv.get('iosHint').then(v => { if (!v) { G.toast(G.x('Para instalarla: botón Compartir → “Añadir a pantalla de inicio”', 'To install: Share button → “Add to Home Screen”'), 9000); G.kv.set('iosHint', 1); } }).catch(() => {});
+      if (ios && !standalone) G.kv.get('iosHint2').then(v => { if (!v) setTimeout(() => G.iosInstall(true), 1200); }).catch(() => {});
     }
     if ('serviceWorker' in navigator && location.protocol.startsWith('http') && !/GirouniversApp/.test(navigator.userAgent)) {
       navigator.serviceWorker.register('sw.js').catch(() => {});
     }
   }
+  // guía para instalar la versión web en el iPhone
+  G.iosInstall = function (auto) {
+    const step = (n, t) => h('li', null, h('b', null, n + '. '), t);
+    const m = G.modal({ title: G.x('Instalar en el iPhone', 'Install on iPhone'),
+      body: h('div', null,
+        h('p', { class: 'muted small' }, G.x('Hazlo desde Safari (no desde Chrome ni desde el navegador de otra app).', 'Do it from Safari (not Chrome or another app’s browser).')),
+        h('ol', { class: 'ios-steps' },
+          step(1, G.x('Pulsa el botón Compartir (el cuadrado con una flecha hacia arriba, abajo en el centro).', 'Tap the Share button (the square with an up arrow, bottom centre).')),
+          step(2, G.x('Desliza hacia abajo y elige “Añadir a pantalla de inicio”.', 'Scroll down and choose “Add to Home Screen”.')),
+          step(3, G.x('Pulsa “Añadir” arriba a la derecha.', 'Tap “Add” at the top right.')),
+          step(4, G.x('Abre la app desde el icono nuevo, no desde Safari.', 'Open the app from the new icon, not from Safari.')))),
+      actions: [auto ? h('button', { class: 'btn ghost', onclick: () => { G.kv.set('iosHint2', 1); m.close(); } }, G.x('No mostrar más', 'Don’t show again')) : null,
+        h('button', { class: 'btn primary', onclick: () => m.close() }, G.x('Entendido', 'Got it'))].filter(Boolean) });
+  };
   // botón atrás de Android: devuelve true si la web lo ha gestionado
   let booted = false, pendingTab = null;
   window.GU = { openTab: t => { if (booted && TABS[t]) G.showTab(t); else pendingTab = t; }, back: () => { if (G.back()) return true; if (current !== 'cielo') { G.showTab('cielo'); return true; } return false; } };

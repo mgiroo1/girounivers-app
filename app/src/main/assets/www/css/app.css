@@ -274,3 +274,5 @@ select { appearance: none; }
 
 .lz-spotrow { margin: 6px 0; }
 .lz-spotrow .chip-btn { padding: 7px 12px; }
+
+.ios-steps { padding-left: 4px; list-style: none; display: grid; gap: 10px; margin: 10px 0; line-height: 1.45; }

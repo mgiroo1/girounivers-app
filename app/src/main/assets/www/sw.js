@@ -1,4 +1,4 @@
-const V = 'girounivers-v10';
+const V = 'girounivers-v11';
 const FILES = ['./', 'index.html', 'manifest.webmanifest', 'css/app.css', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png',
   'js/i18n.js', 'js/astro.js', 'js/data.js', 'js/messier.js','js/groups.js', 'js/util.js', 'js/store.js', 'js/photoui.js', 'js/sky.js', 'js/solar.js', 'js/catalog.js', 'js/challenges.js', 'js/agenda.js', 'js/weather.js', 'js/luz.js', 'js/notify.js', 'js/main.js'];
 self.addEventListener('install', e => e.waitUntil(caches.open(V).then(c => c.addAll(FILES)).then(() => self.skipWaiting())));
