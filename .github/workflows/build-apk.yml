@@ -25,11 +25,30 @@ jobs:
 
       - run: gradle assembleDebug --no-daemon
 
+      - name: Preparar nombre y descripción
+        env:
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
+        run: |
+          VER=$(grep -oP "versionName '\K[^']+" app/build.gradle)
+          TITLE=$(printf '%s' "$COMMIT_MSG" | head -n 1)
+          [ -z "$TITLE" ] && TITLE="Compilación manual"
+          BODY=$(printf '%s' "$COMMIT_MSG" | tail -n +2)
+          cp app/build/outputs/apk/debug/app-debug.apk "Girounivers-v${VER}.apk"
+          {
+            echo "VER=$VER"
+            echo "TITLE=$TITLE"
+            echo "APK=Girounivers-v${VER}.apk"
+            echo "BODY<<EOF_BODY"
+            echo "$BODY"
+            echo "EOF_BODY"
+          } >> "$GITHUB_ENV"
+
       - name: Publicar Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ github.run_number }}
-          name: Girounivers v${{ github.run_number }}
+          tag_name: v${{ env.VER }}-${{ github.run_number }}
+          name: v${{ env.VER }} · ${{ env.TITLE }}
+          body: ${{ env.BODY }}
           draft: false
           prerelease: false
-          files: app/build/outputs/apk/debug/app-debug.apk
+          files: ${{ env.APK }}
