@@ -7,7 +7,7 @@ Personal astronomy app for Android (WebView + HTML/JS), featuring a dark theme a
 ## Sections
 
 * **Sky**: Sky map.
-* **Solar sistem**: Interactive real-time simulation (planets, moons, belts, Ceres, Pluto, and Voyager probes).
+* **Solar system**: Interactive real-time simulation (planets, moons, belts, Ceres, Pluto, and Voyager probes).
 * **Catalog**: Objects with custom photos, grouped by type, A–Z, or constellation (includes Messier objects and black holes).
 * **Schedule**: Cosmic events (oppositions, conjunctions, eclipses…) with notifications.
 * **Weather**: Stargazing forecast (the only section that uses the internet).
