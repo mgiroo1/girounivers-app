@@ -100,6 +100,11 @@ window.G = window.G || {};
         return where;
       } catch (e) { console.error(e); G.toast('No se pudo guardar el archivo'); return null; }
     }
+    // iPhone: hoja de compartir (guardar en Archivos); si no está disponible, descarga normal
+    try {
+      const f = new File([blob], name, { type: mime });
+      if (/iPhone|iPad|iPod/.test(navigator.userAgent) && navigator.canShare && navigator.canShare({ files: [f] })) { await navigator.share({ files: [f], title: name }); return name; }
+    } catch (e) { if (e && e.name === 'AbortError') return null; }
     const a = h('a', { href: URL.createObjectURL(blob), download: name });
     document.body.append(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
     return name;

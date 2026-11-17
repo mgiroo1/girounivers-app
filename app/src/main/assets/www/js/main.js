@@ -104,6 +104,13 @@ window.G = window.G || {};
     if (G.loc.auto && navigator.geolocation) {
       G.getPosition().then(p => { G.loc = { lat: p.lat, lon: p.lon, auto: true }; G.kv.set('loc', G.loc); G.sky.state.dirty = true; }).catch(() => {});
     }
+    // versión web (iPhone / navegador): pide almacenamiento persistente y explica cómo instalarla
+    if (!window.GuFile && !/GirouniversApp/.test(navigator.userAgent)) {
+      try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch (e) { }
+      const ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      const standalone = navigator.standalone === true || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
+      if (ios && !standalone) G.kv.get('iosHint').then(v => { if (!v) { G.toast(G.x('Para instalarla: botón Compartir → “Añadir a pantalla de inicio”', 'To install: Share button → “Add to Home Screen”'), 9000); G.kv.set('iosHint', 1); } }).catch(() => {});
+    }
     if ('serviceWorker' in navigator && location.protocol.startsWith('http') && !/GirouniversApp/.test(navigator.userAgent)) {
       navigator.serviceWorker.register('sw.js').catch(() => {});
     }
