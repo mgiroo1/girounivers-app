@@ -2,7 +2,7 @@
 
 [← Back to the README](../../README.md)
 
-![Map](../screenshots/map.jpeg)
+<p align="center"><img src="../screenshots/map.jpeg" alt="Map" width="280"></p>
 
 A light pollution map of Catalonia, opened from the map icon in the top bar.
 

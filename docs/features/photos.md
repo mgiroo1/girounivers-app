@@ -2,7 +2,7 @@
 
 [← Back to the README](../../README.md)
 
-![Photo viewer](../screenshots/photo-viewer.jpeg)
+<p align="center"><img src="../screenshots/photo-viewer.jpeg" alt="Photo viewer" width="280"></p>
 
 Keep your own photos of every object, with the details of where and when you took them.
 

@@ -2,7 +2,7 @@
 
 [← Back to the README](../../README.md)
 
-![Solar system](../screenshots/solar-system.jpeg)
+<p align="center"><img src="../screenshots/solar-system.jpeg" alt="Solar system" width="280"></p>
 
 An interactive model of the solar system that follows the real date and time.
 

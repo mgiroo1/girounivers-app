@@ -2,7 +2,7 @@
 
 [← Back to the README](../../README.md)
 
-![Weather](../screenshots/weather.jpeg)
+<p align="center"><img src="../screenshots/weather.jpeg" alt="Weather" width="280"></p>
 
 A forecast made for stargazing, to help you decide whether it is worth going out tonight.
 

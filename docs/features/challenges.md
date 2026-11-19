@@ -2,7 +2,7 @@
 
 [← Back to the README](../../README.md)
 
-![Photo challenges](../screenshots/challenges.jpeg)
+<p align="center"><img src="../screenshots/challenges.jpeg" alt="Photo challenges" width="280"></p>
 
 A camera section, opened from the icon in the top bar, with astrophotography challenges to try.
 

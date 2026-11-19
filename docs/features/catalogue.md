@@ -2,7 +2,7 @@
 
 [← Back to the README](../../README.md)
 
-![Catalogue card](../screenshots/card.jpeg)
+<p align="center"><img src="../screenshots/card.jpeg" alt="Catalogue card" width="280"></p>
 
 Hundreds of ready-made cards for the objects you may want to observe: planets, moons, stars, constellations, galaxies, nebulae, star clusters, black holes and the Messier catalogue.
 

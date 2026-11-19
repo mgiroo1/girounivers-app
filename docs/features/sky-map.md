@@ -2,7 +2,7 @@
 
 [← Back to the README](../../README.md)
 
-![Sky map](../screenshots/sky.jpeg)
+<p align="center"><img src="../screenshots/sky.jpeg" alt="Sky map" width="280"></p>
 
 A real-time map of the sky for your location, showing stars, constellations and deep-sky objects.
 

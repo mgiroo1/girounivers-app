@@ -2,7 +2,7 @@
 
 [← Back to the README](../../README.md)
 
-![Agenda](../screenshots/agenda.jpeg)
+<p align="center"><img src="../screenshots/agenda.jpeg" alt="Agenda" width="280"></p>
 
 A calendar of cosmic events, calculated by the app itself, so it works offline.
 
