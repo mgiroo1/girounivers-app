@@ -15,7 +15,7 @@ window.G = window.G || {};
     G.photos.dataURL(rec, which).then(u => { if (u) img.src = u; else img.classList.add('broken'); }).catch(() => img.classList.add('broken'));
   }
   G.setPhotoImg = setImg;
-  G.photoViewer = (rec, opts, refresh) => viewer(rec, opts || {}, refresh || (() => { }));
+  G.photoViewer = (rec, opts, refresh, list) => viewer(rec, opts || {}, refresh || (() => { }), list);
 
 
   // ---------- Recortar / mover / girar una foto dentro de la app ----------
@@ -27,7 +27,8 @@ window.G = window.G || {};
     return new Promise(async resolve => {
       let img;
       try { img = await loadImg(await fileToURL(srcBlob)); } catch (e) { G.toast(G.x('No se pudo abrir la foto para recortar', 'Could not open the photo to crop'), 4000); return resolve(null); }
-      const S = { rot: 0, asp: 0, z: 1, ox: 0, oy: 0 };           // asp: 0 = original, si no ancho/alto
+      const S = { rot: 0, asp: 0, z: 1, ox: 0, oy: 0, grid: false };
+      try { S.grid = !!(await G.kv.get('cropgrid')); } catch (e) { }           // asp: 0 = original, si no ancho/alto
       let fw = 300, fh = 300, applied = false, m;
       const cv = h('canvas', { class: 'crop-cv' }), ctx = cv.getContext('2d');
       const dims = () => (S.rot % 2 ? { w: img.naturalHeight, h: img.naturalWidth } : { w: img.naturalWidth, h: img.naturalHeight });
@@ -42,7 +43,8 @@ window.G = window.G || {};
       function paint() {
         clamp(); ctx.fillStyle = '#000'; ctx.fillRect(0, 0, fw, fh);
         ctx.save(); ctx.translate(fw / 2 + S.ox, fh / 2 + S.oy); ctx.rotate(S.rot * Math.PI / 2); const s = scale(); ctx.scale(s, s); ctx.drawImage(img, -img.naturalWidth / 2, -img.naturalHeight / 2); ctx.restore();
-        // rejilla de tercios
+        // rejilla de tercios (opcional)
+        if (!S.grid) return;
         ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 1; ctx.beginPath();
         for (let i = 1; i < 3; i++) { ctx.moveTo(fw * i / 3, 0); ctx.lineTo(fw * i / 3, fh); ctx.moveTo(0, fh * i / 3); ctx.lineTo(fw, fh * i / 3); } ctx.stroke();
       }
@@ -52,6 +54,7 @@ window.G = window.G || {};
       const chips = h('div', { class: 'crop-chips' }, asps.map(([a, n]) => h('button', { type: 'button', class: 'seg' + (a === S.asp ? ' on' : ''), 'data-a': a, onclick: e => { S.asp = a; G.$$('.seg', chips).forEach(x => x.classList.toggle('on', +x.dataset.a === a)); relayout(false); } }, n)));
       const rot = h('button', { type: 'button', class: 'btn small', onclick: () => { S.rot = (S.rot + 1) % 4; relayout(false); } }, '⟳ ' + G.x('Girar', 'Rotate'));
       const reset = h('button', { type: 'button', class: 'btn small', onclick: () => { S.asp = 0; G.$$('.seg', chips).forEach(x => x.classList.toggle('on', +x.dataset.a === 0)); S.rot = 0; relayout(false); } }, G.x('Restablecer', 'Reset'));
+      const gridBtn = h('button', { type: 'button', class: 'btn small' + (S.grid ? ' primary' : ''), onclick: () => { S.grid = !S.grid; gridBtn.classList.toggle('primary', S.grid); try { G.kv.set('cropgrid', S.grid); } catch (e) { } paint(); } }, '▦ ' + G.x('Cuadrícula', 'Grid'));
       // gestos: arrastrar para mover, pellizcar o rueda para ampliar
       const ptr = new Map(); let pinch = 0;
       cv.addEventListener('pointerdown', e => { cv.setPointerCapture(e.pointerId); ptr.set(e.pointerId, { x: e.clientX, y: e.clientY }); if (ptr.size === 2) { const [a, b] = [...ptr.values()]; pinch = Math.hypot(a.x - b.x, a.y - b.y); } });
@@ -77,7 +80,7 @@ window.G = window.G || {};
         } catch (err) { console.error(err); applied = false; G.toast(G.x('No se pudo recortar: ', 'Could not crop: ') + (err && err.message || err), 5000); }
       }
       m = G.modal({ title: G.x('Recortar y mover', 'Crop and move'), full: true, onClose: () => { if (!applied) resolve(null); },
-        body: h('div', { class: 'crop-wrap' }, h('p', { class: 'muted small' }, G.x('Arrastra la foto para moverla, pellizca o usa el control para ampliar.', 'Drag the photo to move it; pinch or use the slider to zoom.')), cv, h('label', { class: 'crop-zoom' }, '🔍', zoom), chips, h('div', { class: 'row-btns' }, rot, reset)),
+        body: h('div', { class: 'crop-wrap' }, h('p', { class: 'muted small' }, G.x('Arrastra la foto para moverla, pellizca o usa el control para ampliar.', 'Drag the photo to move it; pinch or use the slider to zoom.')), cv, h('label', { class: 'crop-zoom' }, '🔍', zoom), chips, h('div', { class: 'row-btns' }, rot, gridBtn, reset)),
         actions: [h('button', { class: 'btn ghost', onclick: () => m.close() }, G.x('Cancelar', 'Cancel')), h('button', { class: 'btn primary', onclick: apply }, G.x('Aplicar', 'Apply'))] });
       relayout(false);
     });
@@ -101,6 +104,10 @@ window.G = window.G || {};
         const r = await G.luzPick({ lat: parseFloat(lat.value), lon: parseFloat(lon.value) });
         if (r) { lat.value = r.lat.toFixed(5); lon.value = r.lon.toFixed(5); if (r.name && !place.value.trim()) place.value = r.name; }
       } }, '📍 ' + G.x('Elegir en el mapa', 'Choose on the map'));
+      const noteLabel = h('label', null, 'Notas', note);
+      const noteBox = h('div', null);
+      const addNote = h('button', { class: 'btn small', type: 'button', onclick: () => { noteBox.replaceChildren(noteLabel); setTimeout(() => note.focus(), 30); } }, '＋ ' + G.x('Añadir notas', 'Add notes'));
+      if (rec.note) noteBox.append(noteLabel); else noteBox.append(h('div', { class: 'row-btns' }, addNote));
       const img = h('img', { class: 'form-photo' }); setImg(img, rec, 'thumb');
       const cropBtn = h('button', { class: 'btn small', type: 'button', onclick: async () => {
         const src = G.photos.blobOf(rec, 'full'); if (!src) { G.toast(G.x('Esta foto no se puede recortar', 'This photo cannot be cropped')); return; }
@@ -116,7 +123,7 @@ window.G = window.G || {};
           h('label', null, 'Fecha y hora de la foto', date),
           h('label', null, 'Ubicación', h('div', { class: 'row2' }, lat, lon), h('div', { class: 'row-btns' }, gps, pickMap)),
           h('label', null, 'Lugar', place),
-          h('label', null, 'Notas', note)),
+          noteBox),
         actions: [h('button', { class: 'btn ghost', onclick: () => m.close() }, 'Cancelar'),
           h('button', { class: 'btn primary', onclick: async () => {
             saving = true;
@@ -132,21 +139,59 @@ window.G = window.G || {};
     });
   }
 
-  function viewer(rec, opts, refresh) {
-    const loc = rec.lat != null && rec.lon != null;
-    const big = h('img', { class: 'photo-big' }); setImg(big, rec, 'full');
-    const meta = h('div', { class: 'photo-meta' },
-      h('div', null, '📅 ', G.fmtDate(rec.date, true)),
-      loc ? h('div', null, '📍 ', rec.lat.toFixed(5) + ', ' + rec.lon.toFixed(5), ' ',
-        h('a', { href: 'https://www.openstreetmap.org/?mlat=' + rec.lat + '&mlon=' + rec.lon + '#map=14/' + rec.lat + '/' + rec.lon, target: '_blank', rel: 'noopener' }, 'ver mapa')) : h('div', { class: 'muted' }, '📍 Sin ubicación'),
-      rec.place ? h('div', null, '🏷 ', rec.place) : null,
-      rec.note ? h('p', { class: 'note' }, rec.note) : null);
-    const isCover = opts.coverId && opts.coverId() === rec.id;
-    const actions = [
-      h('button', { class: 'btn danger ghost', onclick: () => G.confirm('¿Eliminar esta foto?', 'Eliminar', async () => { m.close(); try { await G.photos.del(rec.id); } catch (e) { G.toast('Error: ' + e.message); } if (opts.coverId && opts.coverId() === rec.id) opts.onCover(null); refresh(); }) }, 'Eliminar'),
-      h('button', { class: 'btn', onclick: () => { m.close(); photoForm(rec, async r => { await G.photos.put(r); }, 'Editar datos').then(refresh); } }, 'Editar datos')];
-    if (opts.onCover) actions.unshift(h('button', { class: 'btn' + (isCover ? ' primary' : ''), onclick: () => { opts.onCover(isCover ? null : rec.id); m.close(); G.toast(isCover ? 'Portada quitada' : 'Foto de portada guardada'); refresh(); } }, isCover ? '★ Portada actual' : '☆ Usar como portada'));
-    const m = G.modal({ title: 'Foto', full: true, body: h('div', null, big, meta), actions });
+  // etiqueta del objeto al que pertenece una foto: { icon, color, name } o null
+  function ownerTag(rec) {
+    const o = String(rec.owner || '');
+    if (o.startsWith('e:')) { const e = G.entries.find(x => x.id === o.slice(2)); if (e) return { icon: G.catIcon ? G.catIcon(e.cat) : '✦', color: (G.CAT_COLORS || {})[e.cat] || '#fff', name: G.t(e.name) }; }
+    if (o.startsWith('c:')) { const c = (G.challenges || []).find(x => x.id === o.slice(2)); if (c) return { icon: '🎯', color: '#ffd28a', name: G.t(c.title) }; }
+    return null;
+  }
+  G.photoOwnerTag = ownerTag;
+
+  // Visor de fotos: desliza a izquierda/derecha (o usa las flechas) para pasar a la anterior o la siguiente
+  function viewer(rec, opts, refresh, list) {
+    list = list && list.length ? list : [rec];
+    let idx = Math.max(0, list.findIndex(x => x.id === rec.id)), m;
+    const body = h('div', { class: 'pv' });
+    const bar = h('div');
+    function go(d) { const n = idx + d; if (n < 0 || n >= list.length) return; idx = n; build(); }
+    function build() {
+      rec = list[idx];
+      const loc = rec.lat != null && rec.lon != null && !isNaN(rec.lat) && !isNaN(rec.lon);
+      const big = h('img', { class: 'photo-big', draggable: 'false' }); setImg(big, rec, 'full');
+      const wrap = h('div', { class: 'pv-wrap' }, big,
+        list.length > 1 ? h('button', { class: 'pv-nav l', type: 'button', 'aria-label': G.x('Anterior', 'Previous'), disabled: idx === 0 ? 'disabled' : null, onclick: () => go(-1) }, '‹') : null,
+        list.length > 1 ? h('button', { class: 'pv-nav r', type: 'button', 'aria-label': G.x('Siguiente', 'Next'), disabled: idx === list.length - 1 ? 'disabled' : null, onclick: () => go(1) }, '›') : null,
+        list.length > 1 ? h('span', { class: 'pv-count' }, (idx + 1) + ' / ' + list.length) : null);
+      let sx = 0, sy = 0, down = false;
+      wrap.addEventListener('pointerdown', e => { if (e.target.closest('.pv-nav')) return; down = true; sx = e.clientX; sy = e.clientY; });
+      wrap.addEventListener('pointerup', e => { if (!down) return; down = false; const dx = e.clientX - sx, dy = e.clientY - sy; if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy) * 1.4) go(dx < 0 ? 1 : -1); });
+      wrap.addEventListener('pointercancel', () => { down = false; });
+      const tag = ownerTag(rec);
+      const where = (rec.place ? rec.place + ': ' : '') + (loc ? rec.lat.toFixed(5) + ', ' + rec.lon.toFixed(5) : '');
+      const meta = h('div', { class: 'photo-meta' },
+        h('div', null, '📅 ', G.fmtDate(rec.date, true)),
+        loc ? h('div', null, '📌 ', where, ' ', h('a', { href: '#', onclick: ev => { ev.preventDefault(); const la = rec.lat, lo = rec.lon; if (G.luz && G.luz.goTo && G.luz.goTo(la, lo, true)) m.close(); else G.toast(G.x('Esta ubicación está fuera del mapa de Catalunya', 'This location is outside the Catalonia map'), 4000); } }, G.x('ver mapa', 'see map')))
+          : h('div', { class: rec.place ? '' : 'muted' }, '📌 ', rec.place || G.x('Sin ubicación', 'No location')),
+        tag ? h('div', { class: 'pv-tag' }, h('span', { class: 'glyph', style: 'color:' + tag.color }, tag.icon), ' ', tag.name) : null,
+        rec.note ? h('p', { class: 'note' }, rec.note) : null);
+      body.replaceChildren(wrap, meta);
+      const isCover = opts.coverId && opts.coverId() === rec.id;
+      const actions = [
+        h('button', { class: 'btn danger ghost', onclick: () => G.confirm('¿Eliminar esta foto?', 'Eliminar', async () => {
+          const gone = rec;
+          try { await G.photos.del(gone.id); } catch (e) { G.toast('Error: ' + e.message); return; }
+          if (opts.coverId && opts.coverId() === gone.id) opts.onCover(null);
+          list.splice(idx, 1); refresh();
+          if (!list.length) { m.close(); return; }
+          idx = Math.min(idx, list.length - 1); build();
+        }) }, 'Eliminar'),
+        h('button', { class: 'btn', onclick: () => { const r = rec; m.close(); photoForm(r, async x => { await G.photos.put(x); }, 'Editar datos').then(refresh); } }, 'Editar datos')];
+      if (opts.onCover) actions.unshift(h('button', { class: 'btn' + (isCover ? ' primary' : ''), onclick: () => { opts.onCover(isCover ? null : rec.id); m.close(); G.toast(isCover ? 'Portada quitada' : 'Foto de portada guardada'); refresh(); } }, isCover ? '★ Portada actual' : '☆ Usar como portada'));
+      const box = m && G.$('.modal-actions', m.el); if (box) box.replaceChildren(...actions); else bar.actions = actions;
+    }
+    m = G.modal({ title: 'Foto', full: true, body, actions: [] });
+    build();
   }
 
   // owner: 'c:<id>' (reto) | 'e:<id>' (ficha). opts: emptyText, onChange, coverId(), onCover(id)
@@ -188,7 +233,7 @@ window.G = window.G || {};
       if (cover != null) { const ci = list.findIndex(p => p.id === cover); if (ci > 0) list.unshift(list.splice(ci, 1)[0]); }
       grid.replaceChildren(...list.map((p, i) => {
         const img = h('img', { alt: '' }); setImg(img, p, 'thumb');
-        return h('button', { class: 'thumb', onclick: () => viewer(p, opts, refresh), 'aria-label': G.t('Foto') + ' ' + (i + 1) },
+        return h('button', { class: 'thumb', onclick: () => viewer(p, opts, refresh, list), 'aria-label': G.t('Foto') + ' ' + (i + 1) },
           img, cover === p.id ? h('i', { class: 'cover-star' }, '★') : null, h('span', null, G.fmtDate(p.date)));
       }));
       if (!list.length) grid.append(h('div', { class: 'empty-thumbs' }, opts.emptyText || 'Aún no hay fotos'));

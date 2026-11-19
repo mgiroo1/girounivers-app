@@ -9,7 +9,7 @@ window.G = window.G || {};
     retos: { title: 'Retos', mod: () => G.challengesUI },
     agenda: { title: 'Agenda', mod: () => G.agenda },
     tiempo: { title: 'Tiempo', mod: () => G.weather },
-    luz: { title: 'Contaminación lumínica', mod: () => G.luz }
+    luz: { title: 'Mapa', mod: () => G.luz }
   };
   let current = null;
 

@@ -3,7 +3,8 @@ window.G = window.G || {};
 (function (G) {
   const h = G.h;
   const CAT_COLORS = { planeta: '#ffb86b', satelite: '#c9d4ff', estrella: '#fff0a8', constelacion: '#8fb3ff', cometa: '#9ff0ff', objeto: '#ff9fe0', galaxia: '#c39bff', nebulosa: '#ff8fb8', cumulo: '#ffd98a', agujero: '#9aa4c7' };
-  const state = { cat: 'todo', q: '', covers: {}, sort: 'tipo', closed: {} };
+  G.CAT_COLORS = CAT_COLORS;
+  const state = { cat: 'todo', q: '', covers: {}, sort: 'tipo', closed: {}, showNotes: false };
   let grid, chips, countEl, sortEl;
 
   G.catalogHas = id => !!G.entries.find(e => e.id === id);
@@ -85,8 +86,9 @@ window.G = window.G || {};
     if (!list.length) grid.append(h('div', { class: 'empty' }, 'No hay fichas que coincidan. Pulsa ＋ para crear una.'));
   }
 
-  function field(label, k, e, multi, hint) {
-    const el = multi ? h('textarea', { rows: 5, placeholder: hint || '' }, e[k] || '') : h('input', { type: 'text', placeholder: hint || '', value: e[k] || '' });
+  function field(label, k, e, multi, hint, dv) {
+    const v0 = e[k] || dv || '';
+    const el = multi ? h('textarea', { rows: 5, placeholder: hint || '' }, v0) : h('input', { type: 'text', placeholder: hint || '', value: v0 });
     el.dataset.k = k;
     return h('label', null, label, el);
   }
@@ -106,32 +108,73 @@ window.G = window.G || {};
     function section(title, text) {
       return h('section', { class: 'sec' }, h('h4', null, title), text && text.trim() ? h('p', { class: 'prose' }, text) : h('p', { class: 'placeholder' }, 'Sin rellenar · pulsa “Editar” para escribir aquí.'));
     }
+    // textos: lo que escribas tú manda; si la ficha está vacía se usa el texto por defecto (en el idioma de la app)
+    const dflt = (k, lang) => { const t = G.TEXTS && G.TEXTS[e.id]; return t && t[lang] ? (t[lang][k] || '') : ''; };
+    const val = k => {
+      const own = e[k] && e[k].trim() ? ((e.seed && G.lang === 'en' && G.SEEDEN && G.SEEDEN[e.id] && G.SEEDEN[e.id][k]) || e[k]) : '';
+      return own || dflt(k, G.lang === 'en' ? 'en' : 'es');
+    };
+    let photos = null, menuOpen = false;
+    async function loadPhotos() {
+      try { photos = await G.photos.list('e:' + e.id); } catch (err) { photos = []; }
+      const ci = e.cover != null ? photos.findIndex(p => p.id === e.cover) : -1;
+      if (ci > 0) photos.unshift(photos.splice(ci, 1)[0]);   // la portada, la primera
+      return photos;
+    }
+    const reloadView = () => loadPhotos().then(() => { if (!edit) render(); });
+    const photoOpts = () => ({ coverId: () => e.cover, onCover: id => { e.cover = id; save(); } });
+    function openGallery() {
+      const gm = G.modal({ title: G.x('Galería · ', 'Gallery · ') + G.t(e.name), full: true,
+        body: G.gallery('e:' + e.id, Object.assign({ emptyText: 'Añade fotos tuyas o de referencia' }, photoOpts())), onClose: reloadView });
+    }
+    function menuItems() {
+      const inSky = (G.starById && G.starById[e.id]) || G.cons.some(c => c.id === e.id) || G.dsos.some(o => o.id === e.id) || Object.values(G.BODY_IDS).includes(e.id);
+      const items = [];
+      if (inSky && e.id !== 'tierra') items.push(['✦', G.x('Ver en el cielo', 'See in the sky'), () => { m.close(); G.sky.focusOn(e.id); }]);
+      if (G.solar.has(e.id)) items.push(['◉', G.x('Ver en el sistema solar', 'See in the solar system'), () => { m.close(); G.solar.focusOn(e.id); }]);
+      items.push(['✎', G.x('Editar', 'Edit'), () => { edit = true; render(); }]);
+      items.push(['📝', state.showNotes ? G.x('Ocultar mis notas', 'Hide my notes') : G.x('Mostrar mis notas', 'Show my notes'), () => { state.showNotes = !state.showNotes; G.kv.set('shownotes', state.showNotes); render(); }]);
+      return items;
+    }
     function render() {
       titleEl.textContent = G.t(e.name);
       const cat = catOf(e.cat);
       const nodes = [];
+      if (!edit && photos === null) loadPhotos().then(() => { if (!edit) render(); });
+      const menu = !edit ? h('div', { class: 'ent-menu' },
+        h('button', { class: 'icon-btn', type: 'button', 'aria-label': G.x('Menú', 'Menu'), 'aria-expanded': menuOpen ? 'true' : 'false', onclick: ev => {
+          ev.stopPropagation(); menuOpen = !menuOpen; render();
+          if (menuOpen) setTimeout(() => document.addEventListener('click', function f() { document.removeEventListener('click', f); if (menuOpen) { menuOpen = false; render(); } }), 0);
+        } }, '☰'),
+        menuOpen ? h('div', { class: 'ent-pop' }, menuItems().map(([ic, t, fn]) => h('button', { type: 'button', onclick: () => { menuOpen = false; fn(); } }, h('span', null, ic), t))) : null) : null;
       nodes.push(h('div', { class: 'entry-head' },
         h('span', { class: 'glyph big', style: 'color:' + CAT_COLORS[e.cat] }, G.catIcon(e.cat)),
-        h('div', null, h('div', { class: 'muted small' }, cat.name), h('div', { class: 'muted' }, G.td(e.sub) || ' '))));
-      nodes.push(h('div', { class: 'row-btns' },
-        h('button', { class: 'btn small' + (e.observed ? ' primary' : ''), onclick: () => { e.observed = !e.observed; save(); render(); } }, e.observed ? '✓ Observado' : 'Marcar como observado'),
-        skyBtn(), edit ? null : h('button', { class: 'btn small', onclick: () => { edit = true; render(); } }, '✎ Editar')));
-      nodes.push(h('section', { class: 'sec' }, h('h4', null, 'Fotos'), G.gallery('e:' + e.id, { emptyText: 'Añade fotos tuyas o de referencia', coverId: () => e.cover, onCover: id => { e.cover = id; save(); } })));
+        h('div', { class: 'grow' }, h('div', { class: 'muted small' }, cat.name), h('div', { class: 'muted' }, G.td(e.sub) || ' ')), menu));
       if (!edit) {
-        const tx = k => (e.seed && G.lang === 'en' && G.SEEDEN && G.SEEDEN[e.id] && G.SEEDEN[e.id][k]) || e[k];
-        nodes.push(section('Descripción', tx('desc')), section('Información', tx('info')), section('Historia y mitología', tx('myth')));
+        // portada grande + galería
+        const cov = photos && photos[0];
+        const img = h('img', { alt: '' });
+        if (cov) G.setPhotoImg(img, cov, 'full');
+        const coverBox = cov ? h('button', { class: 'mag-cover-btn', type: 'button', onclick: () => G.photoViewer(cov, photoOpts(), reloadView, photos) }, img)
+          : h('div', { class: 'mag-cover-empty', style: 'color:' + CAT_COLORS[e.cat] }, photos === null ? '' : h('span', { class: 'glyph big' }, G.catIcon(e.cat)));
+        const side = [];
+        side.push(section('Descripción', val('desc')), section('Información', val('info')), section('Historia y mitología', val('myth')));
         const kvs = [viewKV('Tamaño', e.size), viewKV('Periodo orbital', e.period), viewKV('Distancia al Sol', e.distSun), viewKV('Distancia en años luz', e.distLy)].concat((e.extra || []).map(x => viewKV(x.k, x.v))).filter(Boolean);
-        nodes.push(h('section', { class: 'sec' }, h('h4', null, 'Datos'), kvs.length ? h('div', { class: 'kvs' }, kvs) : h('p', { class: 'placeholder' }, 'Tamaño, periodo orbital, distancia al Sol o años luz… rellénalos en “Editar”.')));
-        nodes.push(section('Mis notas', e.notes));
+        side.push(h('section', { class: 'sec' }, h('h4', null, 'Datos'), kvs.length ? h('div', { class: 'kvs' }, kvs) : h('p', { class: 'placeholder' }, 'Tamaño, periodo orbital, distancia al Sol o años luz… rellénalos en “Editar”.')));
+        nodes.push(h('div', { class: 'mag' },
+          h('div', { class: 'mag-cover' }, coverBox,
+            h('button', { class: 'btn small mag-gal', type: 'button', onclick: openGallery }, '🖼 ' + (photos && photos.length ? G.x('Galería', 'Gallery') + ' (' + photos.length + ')' : G.x('Añadir fotos', 'Add photos')))),
+          h('div', { class: 'mag-side' }, side)));
+        if (state.showNotes || (e.notes && e.notes.trim())) nodes.push(section('Mis notas', e.notes));
         nodes.push(h('div', { class: 'row-btns end' }, h('button', { class: 'btn danger ghost small', onclick: () => G.confirm(G.x('¿Eliminar la ficha “' + e.name + '”? Sus fotos se mantendrán en tu copia pero ya no se mostrarán.', 'Delete the entry “' + e.name + '”? Its photos stay in your backup but will no longer be shown.'), 'Eliminar', () => { G.entries = G.entries.filter(x => x !== e); save(); m.close(); }) }, 'Eliminar ficha')));
       } else {
         const form = h('div', { class: 'form' },
           h('label', null, 'Nombre', h('input', { type: 'text', 'data-k': 'name', value: e.name })),
           h('label', null, 'Categoría', (() => { const s = h('select', { 'data-k': 'cat' }, G.CATS.map(c => h('option', { value: c.id }, c.name))); s.value = e.cat; return s; })()),
           field('Subtítulo / tipo', 'sub', e, false, 'p. ej. Planeta gaseoso, Estrella gigante azul…'),
-          field('Descripción', 'desc', e, true, 'Qué es, cómo se ve, por qué es especial…'),
-          field('Información', 'info', e, true, 'Composición, temperatura, curiosidades…'),
-          field('Historia y mitología', 'myth', e, true, 'Descubrimiento, culturas, mitos asociados…'),
+          field('Descripción', 'desc', e, true, 'Qué es, cómo se ve, por qué es especial…', dflt('desc', 'es')),
+          field('Información', 'info', e, true, 'Composición, temperatura, curiosidades…', dflt('info', 'es')),
+          field('Historia y mitología', 'myth', e, true, 'Descubrimiento, culturas, mitos asociados…', dflt('myth', 'es')),
           field('Tamaño', 'size', e, false, 'p. ej. 12 742 km de diámetro'),
           field('Periodo orbital al Sol', 'period', e, false, 'p. ej. 365,25 días'),
           field('Distancia al Sol (sistema solar)', 'distSun', e, false, 'p. ej. 1 UA · 149,6 millones de km'),
@@ -150,7 +193,7 @@ window.G = window.G || {};
         nodes.push(h('div', { class: 'row-btns end' },
           h('button', { class: 'btn ghost', onclick: () => { edit = false; render(); } }, 'Cancelar'),
           h('button', { class: 'btn primary', onclick: () => {
-            G.$$('[data-k]', form).forEach(i => { e[i.dataset.k] = i.value.trim(); });
+            G.$$('[data-k]', form).forEach(i => { let v = i.value.trim(); if (['desc', 'info', 'myth'].includes(i.dataset.k) && v === dflt(i.dataset.k, 'es')) v = ''; e[i.dataset.k] = v; });
             if (!e.name) e.name = 'Sin nombre';
             e.extra = extras.map(r => { const i = G.$$('input', r); return { k: i[0].value.trim(), v: i[1].value.trim() }; }).filter(x => x.k || x.v);
             delete e.seed; save(); edit = false; render(); G.toast('Ficha guardada');
@@ -158,19 +201,12 @@ window.G = window.G || {};
       }
       body.replaceChildren(...nodes.filter(Boolean));
     }
-    function skyBtn() {
-      const inSky = (G.starById && G.starById[e.id]) || G.cons.some(c => c.id === e.id) || G.dsos.some(o => o.id === e.id) || Object.values(G.BODY_IDS).includes(e.id);
-      const inSolar = G.solar.has(e.id);
-      const els = [];
-      if (inSky && e.id !== 'tierra') els.push(h('button', { class: 'btn small', onclick: () => { m.close(); G.sky.focusOn(e.id); } }, '✦ Ver en el cielo'));
-      if (inSolar) els.push(h('button', { class: 'btn small', onclick: () => { m.close(); G.solar.focusOn(e.id); } }, '◉ Ver en el sistema solar'));
-      return els.length ? h('span', { class: 'inline' }, els) : null;
-    }
     render();
   };
 
   G.catalog = {
     async init() {
+      try { state.showNotes = !!(await G.kv.get('shownotes')); } catch (e) { }
       try { const s = await G.kv.get('catsort'); if (s === 'az' || s === 'con' || s === 'tipo') state.sort = s; } catch (e) { }
       const root = G.$('#view-catalogo');
       const search = h('input', { type: 'search', placeholder: 'Buscar en el catálogo…', oninput: e => { state.q = e.target.value; renderGrid(); } });

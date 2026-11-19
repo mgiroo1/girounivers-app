@@ -276,3 +276,42 @@ select { appearance: none; }
 .lz-spotrow .chip-btn { padding: 7px 12px; }
 
 .ios-steps { padding-left: 4px; list-style: none; display: grid; gap: 10px; margin: 10px 0; line-height: 1.45; }
+
+/* visor de fotos con deslizar */
+.pv-wrap { position: relative; touch-action: pan-y; user-select: none; -webkit-user-select: none; }
+.pv-wrap .photo-big { display: block; -webkit-user-drag: none; }
+.pv-nav { position: absolute; top: 50%; transform: translateY(-50%); width: 38px; height: 54px; border: 0; border-radius: 12px; background: rgba(4, 5, 12, .55); color: #fff; font-size: 28px; line-height: 1; cursor: pointer; }
+.pv-nav.l { left: 6px; } .pv-nav.r { right: 6px; } .pv-nav:disabled { opacity: .25; }
+.pv-count { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); padding: 3px 10px; border-radius: 99px; background: rgba(4, 5, 12, .6); font-size: 12px; color: #dfe5ff; }
+.pv-tag { display: flex; align-items: center; gap: 6px; }
+.pv-tag .glyph { display: inline-flex; width: 22px; height: 22px; font-size: 18px; align-items: center; justify-content: center; }
+.pv-tag .saturn-ico { width: 20px; height: 20px; }
+
+/* ficha estilo revista */
+.entry-head { position: relative; }
+.entry-head .grow { flex: 1; min-width: 0; }
+.ent-menu { position: relative; margin-left: auto; }
+.ent-menu .icon-btn { font-size: 20px; }
+.ent-pop { position: absolute; right: 0; top: 44px; z-index: 5; min-width: 220px; padding: 6px; border-radius: 14px; background: #10152e; border: 1px solid var(--line); box-shadow: 0 10px 30px rgba(0, 0, 0, .6); display: grid; gap: 2px; }
+.ent-pop button { display: flex; gap: 10px; align-items: center; text-align: left; padding: 11px 12px; border: 0; border-radius: 10px; background: transparent; color: var(--text, #e8ecff); font: inherit; cursor: pointer; }
+.ent-pop button:active, .ent-pop button:hover { background: rgba(255, 255, 255, .07); }
+.ent-pop button span { width: 20px; text-align: center; }
+.mag { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: flex-start; }
+.mag-cover { flex: 1 1 300px; min-width: 0; max-width: 560px; display: grid; gap: 10px; }
+.mag-side { flex: 1 1 300px; min-width: 0; }
+.mag-cover-btn { padding: 0; border: 1px solid var(--line); border-radius: 16px; overflow: hidden; background: #000; cursor: pointer; display: block; width: 100%; }
+.mag-cover-btn img { display: block; width: 100%; max-height: 62vh; object-fit: cover; }
+.mag-cover-empty { display: flex; align-items: center; justify-content: center; height: 150px; border: 1px dashed var(--line); border-radius: 16px; background: radial-gradient(circle at 70% 25%, rgba(255, 255, 255, .06), transparent 60%); }
+.mag-gal { justify-self: start; }
+
+/* recorte: la cuadrícula se puede ocultar */
+.crop-cv.nogrid { }
+
+/* mapa: lista de objetos fotografiados */
+.lz-objs { display: grid; gap: 6px; max-height: 34vh; overflow-y: auto; }
+.lz-obj { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: rgba(255, 255, 255, .04); color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.lz-obj .glyph, .lz-objtitle .glyph { display: inline-flex; width: 24px; height: 24px; align-items: center; justify-content: center; font-size: 19px; }
+.lz-obj .saturn-ico, .lz-objtitle .saturn-ico { width: 22px; height: 22px; }
+.lz-obj b { flex: 1; font-weight: 600; }
+.lz-obj em { font-style: normal; color: var(--muted); font-size: 12px; }
+.lz-objtitle { display: inline-flex; align-items: center; gap: 4px; flex: 1; margin-left: 6px; }

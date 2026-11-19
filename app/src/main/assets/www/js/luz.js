@@ -177,11 +177,28 @@ window.G = window.G || {};
       sheet.classList.add('open');
     }
     function closeSheet() { S.sel = null; sheet.classList.remove('open'); S.dirty = true; }
-    async function showPhotos(list) {
-      sheet.replaceChildren(h('div', { class: 'lz-row' }, h('b', null, '📷 ' + G.x(list.length + (list.length > 1 ? ' fotos aquí' : ' foto'), list.length + (list.length > 1 ? ' photos here' : ' photo'))), h('button', { class: 'icon-btn', onclick: closeSheet }, '✕')));
-      const row = h('div', { class: 'lz-thumbs' }); sheet.append(row); sheet.classList.add('open');
-      list.slice(0, 12).forEach(ph => { const img = h('img', { alt: '' }); G.photos.dataURL(ph, 'thumb').then(u => { if (u) img.src = u; }).catch(() => { });
-        row.append(h('button', { class: 'lz-thumb', onclick: () => G.photoViewer && G.photoViewer(ph, {}, () => loadPhotos()) }, img, h('small', null, G.fmtDate(ph.date)), ph.place ? h('small', { class: 'muted' }, ph.place) : null)); });
+    // al tocar un punto de fotos: primero la lista de objetos fotografiados allí, y dentro de cada uno su galería (de más reciente a más antigua)
+    function showPhotos(list) {
+      const groups = new Map();
+      list.forEach(ph => { const k = ph.owner || '?'; if (!groups.has(k)) groups.set(k, []); groups.get(k).push(ph); });
+      const tagOf = k => G.photoOwnerTag && G.photoOwnerTag({ owner: k }) || { icon: '📷', color: '#ff8fb8', name: G.x('Otras fotos', 'Other photos') };
+      const newest = (a, b) => new Date(b.date) - new Date(a.date);
+      const closeBtn = h('button', { class: 'icon-btn', onclick: closeSheet }, '✕');
+      function showList() {
+        sheet.replaceChildren(h('div', { class: 'lz-row' }, h('b', null, '📷 ' + G.x('Objetos fotografiados aquí', 'Objects photographed here')), closeBtn),
+          h('div', { class: 'lz-objs' }, [...groups.keys()].map(k => { const t = tagOf(k);
+            return h('button', { class: 'lz-obj', type: 'button', onclick: () => showObj(k) }, h('span', { class: 'glyph', style: 'color:' + t.color }, t.icon), h('b', { style: 'color:' + t.color }, t.name), h('em', null, String(groups.get(k).length))); })));
+        sheet.classList.add('open');
+      }
+      function showObj(k) {
+        const arr = groups.get(k).slice().sort(newest), t = tagOf(k);
+        const row = h('div', { class: 'lz-thumbs' });
+        sheet.replaceChildren(h('div', { class: 'lz-row' }, h('button', { class: 'icon-btn', 'aria-label': G.x('Volver', 'Back'), onclick: showList }, '‹'),
+          h('b', { class: 'lz-objtitle', style: 'color:' + t.color }, h('span', { class: 'glyph' }, t.icon), ' ', t.name), closeBtn), row);
+        arr.forEach(ph => { const img = h('img', { alt: '' }); G.photos.dataURL(ph, 'thumb').then(u => { if (u) img.src = u; }).catch(() => { });
+          row.append(h('button', { class: 'lz-thumb', onclick: () => G.photoViewer && G.photoViewer(ph, {}, () => loadPhotos(), arr) }, img, h('small', null, G.fmtDate(ph.date)))); });
+      }
+      showList();
     }
     async function loadPhotos() { try { S.photos = (await G.photos.all()).filter(p => p.lat != null && p.lon != null && !isNaN(p.lat) && !isNaN(p.lon)); } catch (e) { S.photos = []; } if (poiBadge) poiBadge.textContent = String(S.photos.length); S.dirty = true; }
     const saveSpots = () => G.kv.set('spots', S.spots);
@@ -238,6 +255,7 @@ window.G = window.G || {};
       refresh() { if (baseLbl) baseLbl.textContent = BASES[baseKey].name; if (attEl) attEl.textContent = BASES[baseKey].att; S.dirty = true; },
       state: S, centre: () => ({ lat: S.lat, lon: S.lng }), resize, info,
       setSpots(a) { S.spots = a; S.dirty = true; },
+      select(la, lo) { S.sel = { lat: la, lon: lo }; S.dirty = true; },
       goTo(la, lo, z) { S.lat = la; S.lng = lo; S.zoom = Math.max(S.zoom, z || 12); clamp(); S.dirty = true; },
       show(on) { active = on; if (on) { if (!baseOk) { tiles.forEach((t, k) => { if (t.bad) tiles.delete(k); }); baseFail = 0; } if (S.showPhotos) loadPhotos(); setTimeout(() => { resize(); clamp(); S.dirty = true; }, 30); } }
     };
@@ -253,6 +271,13 @@ window.G = window.G || {};
       addEventListener('resize', () => main.resize());
     },
     show(on) { if (main) main.show(on); },
+    // llevar el mapa a un punto (p. ej. desde «ver mapa» de una foto). false si cae fuera del mapa de Catalunya
+    goTo(lat, lon) {
+      if (!main || isNaN(lat) || isNaN(lon) || lat < BBOX.s || lat > BBOX.n || lon < BBOX.w || lon > BBOX.e) return false;
+      G.showTab('luz');
+      setTimeout(() => { main.goTo(lat, lon, 13); main.select(lat, lon); }, 90);
+      return true;
+    },
     get state() { return main && main.state; },
     analyse
   };
