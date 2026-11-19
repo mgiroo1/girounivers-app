@@ -83,14 +83,6 @@ app/src/main/java/          Android code (WebView, photo picker, notifications)
 - Android local notifications with `AlarmManager`.
 - The Bortle model is an estimate computed from a table of towns and cities; it is meant as a guide, not a measurement.
 
-## Building
-
-Every push to `main` runs GitHub Actions:
-- **Build APK** compiles the app, signs it and publishes a release. The signing key is stored in the repository secrets `KEYSTORE_BASE64` and `KEYSTORE_PASSWORD`, so it is never in the code.
-- **Publish web** copies the web interface to the `gh-pages` branch, which GitHub Pages serves.
-
-To publish a new version, raise `versionCode` and `versionName` in `app/build.gradle`, then commit and push. The release title and description come from the commit message.
-
 ## Credits
 
 Map data © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors, [ICGC](https://www.icgc.cat/), Esri World Imagery. Weather by [Open-Meteo](https://open-meteo.com/).
