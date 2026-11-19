@@ -2,7 +2,14 @@
 
 [← Back to the README](../../README.md)
 
-<p align="center"><img src="../screenshots/card.jpeg" alt="Catalogue card" width="280"></p>
+<table>
+<tr>
+<td width="290" valign="top">
+
+<img src="../screenshots/card.jpeg" alt="Catalogue card" width="260">
+
+</td>
+<td valign="top">
 
 Hundreds of ready-made cards for the objects you may want to observe: planets, moons, stars, constellations, galaxies, nebulae, star clusters, black holes and the Messier catalogue.
 
@@ -12,3 +19,7 @@ Hundreds of ready-made cards for the objects you may want to observe: planets, m
 - Every card comes with text in Spanish and English. Anything you write yourself takes priority, and you can edit every field.
 - Create your own cards for objects that are not in the catalogue.
 - Personal **notes** per card, which you can show or hide from the card menu (☰).
+
+</td>
+</tr>
+</table>

@@ -2,7 +2,14 @@
 
 [← Back to the README](../../README.md)
 
-<p align="center"><img src="../screenshots/photo-viewer.jpeg" alt="Photo viewer" width="280"></p>
+<table>
+<tr>
+<td width="290" valign="top">
+
+<img src="../screenshots/photo-viewer.jpeg" alt="Photo viewer" width="260">
+
+</td>
+<td valign="top">
 
 Keep your own photos of every object, with the details of where and when you took them.
 
@@ -13,3 +20,7 @@ Keep your own photos of every object, with the details of where and when you too
 - Each photo shows the object it belongs to, with its symbol and colour.
 - Choose which photo is the **cover** of each card. It is shown first in the gallery.
 - Notes are optional: add them only when you want them.
+
+</td>
+</tr>
+</table>

@@ -2,7 +2,14 @@
 
 [← Back to the README](../../README.md)
 
-<p align="center"><img src="../screenshots/agenda.jpeg" alt="Agenda" width="280"></p>
+<table>
+<tr>
+<td width="290" valign="top">
+
+<img src="../screenshots/agenda.jpeg" alt="Agenda" width="260">
+
+</td>
+<td valign="top">
 
 A calendar of cosmic events, calculated by the app itself, so it works offline.
 
@@ -10,3 +17,7 @@ A calendar of cosmic events, calculated by the app itself, so it works offline.
 - Add your **own events**.
 - **Android notifications**: choose to be notified the same day, the evening before, or one hour before, and choose which types of event to include.
 - Notifications are not available in the iPhone web version.
+
+</td>
+</tr>
+</table>

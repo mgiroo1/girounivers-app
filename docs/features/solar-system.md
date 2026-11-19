@@ -2,7 +2,14 @@
 
 [← Back to the README](../../README.md)
 
-<p align="center"><img src="../screenshots/solar-system.jpeg" alt="Solar system" width="280"></p>
+<table>
+<tr>
+<td width="290" valign="top">
+
+<img src="../screenshots/solar-system.jpeg" alt="Solar system" width="260">
+
+</td>
+<td valign="top">
 
 An interactive model of the solar system that follows the real date and time.
 
@@ -12,3 +19,7 @@ An interactive model of the solar system that follows the real date and time.
 - Pan and zoom freely, and tap any body to open its catalogue card.
 - From a card, choose **See in the solar system** in the menu (☰) to jump to that body.
 - Works offline.
+
+</td>
+</tr>
+</table>
