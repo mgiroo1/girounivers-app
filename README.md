@@ -12,48 +12,15 @@ It runs as an Android app (APK) and as a web app you can add to your iPhone home
 
 ## Features
 
-### Sky map
-- Real-time map of the sky for your location, with stars, constellations and deep-sky objects.
-- Jump from any catalogue card straight to the object in the sky.
-
-### Solar system
-- Interactive, real-time model of the solar system: planets, their main moons and the asteroid belt.
-- Includes the dwarf planets Ceres and Pluto, plus markers for the Voyager 1 and Voyager 2 probes.
-
-### Catalogue
-- Hundreds of ready-made cards: planets, moons, stars, constellations, galaxies, nebulae, clusters, black holes and the Messier catalogue.
-- Every card has a description, information and history/mythology (Spanish and English), and you can edit any of it.
-- Magazine-style card layout: a large cover photo with the information and data beside it, plus a gallery for the rest of your photos.
-- Group by type, sort A–Z or by constellation, and search.
-- Your own notes per card, shown only when you want them.
-
-### Photos
-- Add photos from your phone, with in-app crop, move, zoom and rotate (optional grid).
-- Date, location and place name for each photo.
-- Swipe left and right to move between photos.
-- Pick the photo location on the built-in map, or choose one of your saved observing spots.
-- Choose the cover photo of each card.
-
-### Photo challenges
-- A camera section with astrophotography challenges to try.
-
-### Agenda
-- Upcoming cosmic events: oppositions, conjunctions, eclipses, quadratures, stationary points, perihelion and aphelion, supermoons and more.
-- Add your own events.
-- Android notifications for the agenda (the same day, the evening before, or one hour before).
-
-### Weather
-- Forecast tailored to stargazing, with a score for each night, based on Open-Meteo. This is the only section that needs internet.
-
-### Map
-- Light pollution map of Catalonia with the Bortle scale and the sky brightness at any point.
-- Base maps: OpenStreetMap, ICGC topographic and satellite imagery.
-- Optional layer with the places where you took your photos. Tap a point to see the objects photographed there, then open each object's gallery.
-- Save your own observing spots and use them when assigning a location to a photo.
-
-### Backup and languages
-- Export and import a full backup: cards, photos, locations, spots and settings.
-- Spanish and English.
+- [**Sky map**](docs/features/sky-map.md): real-time map of the sky for your location.
+- [**Solar system**](docs/features/solar-system.md): interactive model with planets, moons, belts, Ceres, Pluto and the Voyager probes.
+- [**Catalogue**](docs/features/catalogue.md): hundreds of editable cards with your own photos, in a magazine-style layout.
+- [**Photos**](docs/features/photos.md): in-app crop, swipe gallery and photo locations.
+- [**Photo challenges**](docs/features/challenges.md): astrophotography challenges to try.
+- [**Agenda**](docs/features/agenda.md): oppositions, conjunctions, eclipses and more, with Android notifications.
+- [**Weather**](docs/features/weather.md): a stargazing forecast for each night.
+- [**Map**](docs/features/map.md): light pollution map of Catalonia (Bortle scale) with your photo locations and observing spots.
+- [**Backup and languages**](docs/features/backup.md): full export/import, in Spanish and English.
 
 ## Getting the app
 
@@ -82,6 +49,14 @@ app/src/main/java/          Android code (WebView, photo picker, notifications)
 - Local storage in IndexedDB, and a service worker for offline use.
 - Android local notifications with `AlarmManager`.
 - The Bortle model is an estimate computed from a table of towns and cities; it is meant as a guide, not a measurement.
+
+## Building
+
+Every push to `main` runs GitHub Actions:
+- **Build APK** compiles the app, signs it and publishes a release. The signing key is stored in the repository secrets `KEYSTORE_BASE64` and `KEYSTORE_PASSWORD`, so it is never in the code.
+- **Publish web** copies the web interface to the `gh-pages` branch, which GitHub Pages serves.
+
+To publish a new version, raise `versionCode` and `versionName` in `app/build.gradle`, then commit and push. The release title and description come from the commit message.
 
 ## Credits
 
